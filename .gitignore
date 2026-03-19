@@ -1,0 +1,5 @@
+lede-src/
+build/
+output/
+packit/
+shared/
