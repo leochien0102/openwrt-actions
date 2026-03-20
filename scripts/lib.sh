@@ -215,9 +215,12 @@ update_packit() {
     if [[ ! -d "$PACKIT_DIR/.git" ]]; then
         msg "Cloning openwrt_packit"
         git clone --depth=1 https://github.com/unifreq/openwrt_packit "$PACKIT_DIR"
-    else
+    elif [[ -z "${CI:-}" ]]; then
         msg "Updating openwrt_packit"
+        git -C "$PACKIT_DIR" restore .
         git -C "$PACKIT_DIR" pull --rebase
+    else
+        msg "Using existing openwrt_packit (CI)"
     fi
 
     # kernels/ holds pre-built flippy kernels; user populates it manually
