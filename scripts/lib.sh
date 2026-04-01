@@ -215,9 +215,12 @@ update_packit() {
     if [[ ! -d "$PACKIT_DIR/.git" ]]; then
         msg "Cloning openwrt_packit"
         git clone --depth=1 https://github.com/unifreq/openwrt_packit "$PACKIT_DIR"
-    else
+    elif [[ -z "${CI:-}" ]]; then
         msg "Updating openwrt_packit"
+        git -C "$PACKIT_DIR" restore .
         git -C "$PACKIT_DIR" pull --rebase
+    else
+        msg "Using existing openwrt_packit (CI)"
     fi
 
     # kernels/ holds pre-built flippy kernels; user populates it manually
@@ -265,27 +268,39 @@ stage_rootfs() {
 
 # Resolve the latest kernel version for a given dtb prefix from packit/kernels/.
 # Writes the resolved version into $var_name in whoami.
-# If whoami already has an explicit non-empty value for $var_name, it is kept.
+# Priority:
+#   1. whoami pins a version AND the file exists → use it
+#   2. whoami pins a version but file is missing → warn, fallback to latest
+#   3. whoami is empty → use latest
+#   4. No kernels at all → skip (packit will use make.env default or fail)
 _resolve_kernel_var() {
     local var_name="$1"   # e.g. KERNEL_VERSION or RK35XX_KERNEL_VERSION
     local dtb_prefix="$2" # e.g. dtb-amlogic or dtb-rockchip
     local whoami_file="$PACKIT_DIR/whoami"
     local kernels_dir="$PACKIT_DIR/kernels"
 
-    # If whoami pins a specific version, respect it
+    # Check if whoami pins a specific version
     local pinned
     pinned=$(grep -E "^${var_name}=" "$whoami_file" 2>/dev/null \
         | head -n1 | cut -d= -f2 | tr -d '"')
-    if [[ -n "$pinned" ]]; then
-        msg "$var_name pinned in whoami: $pinned"
-        return
-    fi
 
-    # Find the latest version via the dtb prefix (distinguishes amlogic vs rockchip)
+    # Find the latest available version
     local latest
     latest=$(find "$kernels_dir" -maxdepth 1 -name "${dtb_prefix}-*.tar.gz" \
         | sed "s|.*${dtb_prefix}-||;s|\.tar\.gz||" \
         | sort -V | tail -n1)
+
+    if [[ -n "$pinned" ]]; then
+        local pinned_file
+        pinned_file=$(find "$kernels_dir" -maxdepth 1 \
+            -name "${dtb_prefix}-${pinned}.tar.gz" 2>/dev/null | head -n1)
+        if [[ -n "$pinned_file" ]]; then
+            msg "$var_name pinned in whoami: $pinned"
+            return
+        else
+            msg "WARNING: $var_name pinned to $pinned but file not found, falling back to latest"
+        fi
+    fi
 
     if [[ -z "$latest" ]]; then
         msg "No ${dtb_prefix} kernels found in $kernels_dir, skipping $var_name"

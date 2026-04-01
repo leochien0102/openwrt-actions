@@ -1,6 +1,8 @@
 name: Build Armvirt
 
 on:
+  schedule:
+    - cron: '0 16 * * 0'  # UTC 16:00 Sunday = Beijing 00:00 Monday
   workflow_dispatch:
 
 env:
@@ -99,8 +101,6 @@ jobs:
         with:
           ref: kernels
           path: packit/kernels
-          sparse-checkout: .
-          sparse-checkout-cone-mode: false
 
       - name: Build N1
         run: bash scripts/build-n1.sh
