@@ -2,27 +2,35 @@
 
 基于 [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede) 的 OpenWRT 多 target 编译项目，支持 Rockchip（H28K）和 Amlogic（N1）设备。
 
-## 目录结构
+## 分支说明
+
+| 分支 | 用途 |
+|------|------|
+| `main` | 编译脚本、配置、补丁 |
+| `kernels` | flippy 预编译内核文件（孤立分支） |
+
+## 目录结构（main 分支）
 
 ```
 .
-├── configs/                  # 编译配置
-│   ├── feeds.conf            # 通用 feeds 配置
-│   ├── rockchip.config       # Rockchip diffconfig
-│   └── armvirt.config        # Armvirt diffconfig
-├── patches/                  # 补丁
-│   ├── common/               # 所有 target 通用
-│   ├── base-files/           # base-files 相关
-│   ├── rockchip/             # Rockchip 专属
-│   └── armvirt/              # Armvirt 专属
+├── configs/
+│   ├── feeds.conf               # 通用 feeds 配置
+│   ├── rockchip.config          # Rockchip 编译配置
+│   └── armvirt.config           # Armvirt 编译配置
+├── patches/
+│   ├── common/                  # 所有 target 通用
+│   ├── base-files/              # base-files 相关
+│   ├── rockchip/                # Rockchip 专属
+│   └── armvirt/                 # Armvirt 专属
 ├── scripts/
-│   ├── lib.sh                # 公共函数库
-│   ├── build-rockchip.sh     # Rockchip 编译脚本
-│   ├── build-armvirt.sh      # Armvirt 编译脚本
-│   └── build-n1.sh           # N1 打包脚本（依赖 armvirt 编译结果）
+│   ├── lib.sh                   # 公共函数库
+│   ├── build-rockchip.sh        # Rockchip 编译脚本
+│   ├── build-armvirt.sh         # Armvirt 编译脚本
+│   └── build-n1.sh              # N1 打包脚本（依赖 armvirt 编译结果）
 └── .github/
     └── workflows/
-        └── weekly.yml        # 每周自动构建
+        ├── rockchip.yml         # Rockchip 每周自动构建
+        └── armvirt.yml          # Armvirt 每周自动构建
 ```
 
 以下目录由编译机运行时自动创建，不进 git：
@@ -47,18 +55,20 @@ shared/      # dl / feeds / ccache 共享缓存
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
-    build-essential clang flex bison g++ gawk gcc-multilib \
-    gettext git libncurses-dev libssl-dev python3-distutils \
-    rsync unzip zlib1g-dev file wget ccache xz-utils
+    ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+    bzip2 ccache clang cmake cpio curl device-tree-compiler flex gawk gcc-multilib g++-multilib gettext \
+    genisoimage git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev \
+    libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev \
+    libreadline-dev libssl-dev libtool llvm lrzsz libnsl-dev ninja-build p7zip p7zip-full patch pkgconf \
+    python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion \
+    swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
 ```
 
 ### 初次使用
 
-在编译机上 clone 本仓库，然后初始化 upstream 源码和共享目录：
-
 ```bash
-git clone https://github.com/<your-username>/openwrt-ci
-cd openwrt-ci
+git clone https://github.com/leochien0102/openwrt-actions
+cd openwrt-actions
 
 # 初始化 upstream 源码
 git clone https://github.com/coolsnowwolf/lede lede-src
@@ -104,23 +114,34 @@ packit/kernels/
 KERNEL_VERSION="6.6.62-flippy-92+"
 ```
 
+若锁定版本在 `kernels/` 目录中找不到对应文件，脚本会自动 fallback 到最新可用版本并打印警告。
+
 ## 自动构建（GitHub Actions）
 
 每周日 UTC 16:00（北京时间周一 00:00）自动触发，也可在 Actions 页面手动触发。
 
-产物发布到 GitHub Releases，tag 格式为 `weekly-YYYYMMDD`，保留最近 4 次。
+| Workflow | Target | Release tag |
+|----------|--------|-------------|
+| rockchip.yml | H28K | `rockchip-YYYYMMDD` |
+| armvirt.yml | N1 | `armvirt-YYYYMMDD` |
 
-### N1 内核缓存
+各保留最近 4 次 Release。
 
-GitHub Actions 无法访问编译机上的 `packit/kernels/`，需要提前将内核文件上传到 Actions Cache。在编译机上执行：
+### N1 内核更新
+
+内核文件存放在 `kernels` 分支根目录下，Actions 构建时会自动 checkout 该分支获取内核。
+
+更新内核时：
 
 ```bash
-# 安装 gh CLI（如未安装）
-sudo apt install gh
-gh auth login
+git checkout kernels
 
-# 上传内核缓存（在项目根目录执行）
-gh cache set packit-kernels --dir packit/kernels
+# 删除旧内核文件，添加新文件
+git rm *.tar.gz
+# 复制新内核文件到当前目录
+git add *.tar.gz
+git commit -m "Kernels: bump to <version>"
+git push origin kernels
+
+git checkout main
 ```
-
-此后每次 Actions 运行时会自动从 cache 恢复内核文件。有新内核时重新执行上述命令更新 cache 即可。
