@@ -1,9 +1,9 @@
 name: Build Armvirt
 
 on:
-  schedule:
-    - cron: '0 16 * * 0'  # UTC 16:00 Sunday = Beijing 00:00 Monday
   workflow_dispatch:
+  schedule:
+    - cron: '0 16 * * 0'
 
 env:
   TZ: Asia/Shanghai
@@ -36,12 +36,13 @@ jobs:
           key: dl-armvirt-${{ hashFiles('configs/armvirt.config', 'configs/feeds.conf') }}
           restore-keys: dl-armvirt-
 
-      - name: Restore ccache
+      - name: Restore feeds cache
         uses: actions/cache@v4
         with:
-          path: shared/ccache
-          key: ccache-armvirt-${{ github.run_id }}
-          restore-keys: ccache-armvirt-
+          path: shared/feeds
+          key: feeds-armvirt-${{ hashFiles('configs/feeds.conf') }}
+          restore-keys: feeds-armvirt-
+
 
       - name: Install dependencies
         run: |
@@ -59,7 +60,7 @@ jobs:
         run: git clone --depth=1 https://github.com/coolsnowwolf/lede lede-src
 
       - name: Init shared directories
-        run: mkdir -p shared/dl shared/feeds shared/ccache
+        run: mkdir -p shared/dl shared/feeds
 
       - name: Build
         run: bash scripts/build-armvirt.sh
