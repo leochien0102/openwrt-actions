@@ -74,6 +74,22 @@ prepare_worktree() {
 #################################
 # patches
 #################################
+apply_patch_dir_single() {
+    local p="$1"
+    local name
+    name=$(basename "$p")
+    echo "Applying $name"
+    if ! patch -p1 --forward < "$p" >/tmp/patch_out 2>&1; then
+        if grep -q "Reversed (or previously applied)" /tmp/patch_out; then
+            echo "  (already applied, skipping)"
+        else
+            err "Failed to apply $name"
+            cat /tmp/patch_out >&2
+            return 1
+        fi
+    fi
+}
+
 apply_patch_dir() {
     local dir="$1"
     [[ -d "$dir" ]] || return 0
@@ -82,19 +98,7 @@ apply_patch_dir() {
     [[ -f "${patches[0]}" ]] || return 0  # glob found nothing
 
     for p in "${patches[@]}"; do
-        local name
-        name=$(basename "$p")
-        echo "Applying $name"
-        if ! patch -p1 --forward < "$p" >/tmp/patch_out 2>&1; then
-            # "already applied" is not a real error — message goes to stdout
-            if grep -q "Reversed (or previously applied)" /tmp/patch_out; then
-                echo "  (already applied, skipping)"
-            else
-                err "Failed to apply $name"
-                cat /tmp/patch_out >&2
-                return 1
-            fi
-        fi
+        apply_patch_dir_single "$p"
     done
 }
 
@@ -103,7 +107,24 @@ apply_patches() {
 
     msg "Applying patches"
     apply_patch_dir "$PATCH_DIR/common"
-    apply_patch_dir "$PATCH_DIR/base-files"
+
+    # Apply base-files patches, skipping any that are overridden by a same-named
+    # patch in the target directory
+    local dir="$PATCH_DIR/base-files"
+    if [[ -d "$dir" ]]; then
+        local patches=( "$dir"/*.patch )
+        [[ -f "${patches[0]}" ]] || patches=()
+        for p in "${patches[@]}"; do
+            local name
+            name=$(basename "$p")
+            if [[ -f "$PATCH_DIR/$target/$name" ]]; then
+                msg "Skipping base-files/$name (overridden by $target/$name)"
+            else
+                apply_patch_dir_single "$p"
+            fi
+        done
+    fi
+
     apply_patch_dir "$PATCH_DIR/$target"
 }
 
