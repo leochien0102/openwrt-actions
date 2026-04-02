@@ -69,6 +69,9 @@ prepare_worktree() {
         --exclude=dl \
         --exclude=feeds \
         --exclude=.ccache
+
+    # Clear stale ccache lock that may be left by interrupted builds
+    rm -rf .ccache/lock
 }
 
 #################################
