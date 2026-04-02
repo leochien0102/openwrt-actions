@@ -21,18 +21,28 @@ clean_firmware() {
 
     [[ -d "$firmware_dir" ]] || return 0
 
-    local count
-    count=$(ls "$firmware_dir" 2>/dev/null | wc -l)
+    # Extract unique timestamps from filenames (first 10 chars)
+    local timestamps
+    mapfile -t timestamps < <(
+        ls "$firmware_dir" 2>/dev/null \
+        | grep -oE '^[0-9]{10}' \
+        | sort -u -r
+    )
 
-    if [[ "$count" -le "$KEEP" ]]; then
-        msg "$target/firmware: $count file(s), nothing to clean (keep=$KEEP)"
+    local total="${#timestamps[@]}"
+
+    if [[ "$total" -le "$KEEP" ]]; then
+        msg "$target/firmware: $total build(s), nothing to clean (keep=$KEEP)"
         return 0
     fi
 
-    msg "$target/firmware: $count file(s), keeping latest $KEEP"
-    ls -t "$firmware_dir" | tail -n +"$((KEEP + 1))" | while read -r f; do
-        msg "  Removing: $f"
-        rm -f "$firmware_dir/$f"
+    msg "$target/firmware: $total build(s), keeping latest $KEEP"
+    local to_remove=("${timestamps[@]:$KEEP}")
+    for ts in "${to_remove[@]}"; do
+        find "$firmware_dir" -name "${ts}-*" | while read -r f; do
+            msg "  Removing: $(basename "$f")"
+            rm -f "$f"
+        done
     done
 }
 
