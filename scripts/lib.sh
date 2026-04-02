@@ -359,7 +359,12 @@ run_packit() {
     sed -i 's/^ENABLE_WIFI_K510=.*/ENABLE_WIFI_K510=0/' "$script"
 
     msg "Running packit: $script"
-    sudo "./$script"
+    sudo -E "./$script"
+
+    # Clear resolved kernel versions from whoami so next run re-resolves
+    local whoami_file="$PACKIT_DIR/whoami"
+    sed -i 's/^KERNEL_VERSION=.*/KERNEL_VERSION=""/' "$whoami_file"
+    sed -i 's/^RK35XX_KERNEL_VERSION=.*/RK35XX_KERNEL_VERSION=""/' "$whoami_file"
 }
 
 # xz-compress .img files from packit output/, add timestamp prefix, move to output/<target>/firmware/
