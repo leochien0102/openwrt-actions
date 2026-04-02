@@ -207,7 +207,7 @@ collect_output() {
         echo "  ${ts}-${base}"
         (( count++ )) || true
     done < <(find bin/targets -maxdepth 4 -type f \
-        \( -name "*.img*" -o -name "*.bin" -o -name "*.manifest" \) \
+        \( -name "*.img*" -o -name "*.bin" -o -name "*.manifest" -o -name "*.qcow2" \) \
         ! -name "Packages.manifest" \
         -print0)
     msg "Collected $count firmware file(s)"
