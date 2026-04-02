@@ -151,14 +151,7 @@ cd ../..
 
 ### N1 内核
 
-首次运行 `build-n1.sh` 后，`packit/kernels/` 目录会自动创建。将 flippy 预编译内核文件平铺放入该目录：
-
-```
-packit/kernels/
-├── boot-<version>.tar.gz
-├── modules-<version>.tar.gz
-└── dtb-amlogic-<version>.tar.gz
-```
+内核文件通过 [leochien0102/openwrt_packit](https://github.com/leochien0102/openwrt_packit) fork 仓库的 `kernels/` 目录统一管理，使用 Git LFS 存储。`build-n1.sh` 会自动 clone 该仓库，无需手动放置内核文件。
 
 脚本会自动选用版本号最新的内核。如需锁定特定版本，编辑 `packit/whoami`：
 
@@ -182,19 +175,19 @@ KERNEL_VERSION="6.6.62-flippy-92+"
 
 ### N1 内核更新
 
-内核文件存放在 `kernels` 分支根目录下，Actions 构建时会自动 checkout 该分支获取内核。
+内核文件存放在 [leochien0102/openwrt_packit](https://github.com/leochien0102/openwrt_packit) fork 仓库的 `kernels/` 目录下，使用 Git LFS 管理。
 
 更新内核时：
 
 ```bash
-git checkout kernels
+cd packit
 
 # 删除旧内核文件，添加新文件
-git rm *.tar.gz
-# 复制新内核文件到当前目录
-git add *.tar.gz
+git rm kernels/*.tar.gz
+cp /path/to/new/kernels/*.tar.gz kernels/
+git add kernels/
 git commit -m "Kernels: bump to <version>"
-git push origin kernels
-
-git checkout main
+git push origin master
 ```
+
+本地下次运行 `build-n1.sh` 时会自动 pull 最新内核，CI 每次也会从 fork clone 最新版本。

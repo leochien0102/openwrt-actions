@@ -233,22 +233,27 @@ collect_output() {
 # openwrt_packit
 #################################
 
-# Clone openwrt_packit if not present, otherwise pull latest.
+# Clone openwrt_packit fork if not present, otherwise sync upstream and pull.
 # Also ensures kernels/ dir and whoami file exist.
 update_packit() {
     if [[ ! -d "$PACKIT_DIR/.git" ]]; then
         msg "Cloning openwrt_packit"
-        git clone --depth=1 https://github.com/unifreq/openwrt_packit "$PACKIT_DIR"
+        git clone https://github.com/leochien0102/openwrt_packit "$PACKIT_DIR"
     elif [[ -z "${CI:-}" ]]; then
         msg "Updating openwrt_packit"
         git -C "$PACKIT_DIR" restore .
-        git -C "$PACKIT_DIR" pull --rebase
+        # Sync upstream before pulling fork
+        if ! git -C "$PACKIT_DIR" remote get-url upstream &>/dev/null; then
+            git -C "$PACKIT_DIR" remote add upstream https://github.com/unifreq/openwrt_packit
+        fi
+        git -C "$PACKIT_DIR" fetch upstream
+        git -C "$PACKIT_DIR" rebase upstream/master
+        git -C "$PACKIT_DIR" push origin master 2>/dev/null || true
     else
         msg "Using existing openwrt_packit (CI)"
     fi
 
-    # kernels/ holds pre-built flippy kernels; user populates it manually
-    mkdir -p "$PACKIT_DIR/kernels"
+    # kernels/ is maintained in the fork repo
 
     # Generate whoami if it doesn't exist yet; user can edit afterwards
     local whoami_file="$PACKIT_DIR/whoami"

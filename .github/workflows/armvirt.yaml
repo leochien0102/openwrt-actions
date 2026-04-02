@@ -95,13 +95,7 @@ jobs:
           path: build/armvirt/bin/targets
 
       - name: Clone openwrt_packit
-        run: git clone --depth=1 https://github.com/unifreq/openwrt_packit packit
-
-      - name: Checkout kernels branch
-        uses: actions/checkout@v4
-        with:
-          ref: kernels
-          path: packit/kernels
+        run: git clone https://github.com/leochien0102/openwrt_packit packit
 
       - name: Build N1
         run: bash scripts/build-n1.sh
