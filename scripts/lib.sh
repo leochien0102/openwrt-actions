@@ -153,7 +153,15 @@ fetch_feeds() {
     local target="$1"
     load_feeds_conf "$target"
     msg "Updating feeds"
-    ./scripts/feeds update -a
+    if ! ./scripts/feeds update -a; then
+        msg "Feed update failed (force-pushed upstream?), resetting diverged feeds and retrying"
+        for d in feeds/*/; do
+            [[ -d "$d/.git" ]] || continue
+            git -C "$d" fetch --all --prune 2>/dev/null
+            git -C "$d" reset --hard "@{upstream}" 2>/dev/null || true
+        done
+        ./scripts/feeds update -a
+    fi
 }
 
 install_feeds() {
