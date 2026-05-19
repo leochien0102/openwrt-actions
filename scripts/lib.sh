@@ -149,13 +149,22 @@ load_feeds_conf() {
     fi
 }
 
-update_feeds() {
+fetch_feeds() {
     local target="$1"
-
     load_feeds_conf "$target"
     msg "Updating feeds"
     ./scripts/feeds update -a
+}
+
+install_feeds() {
+    msg "Installing feeds"
     ./scripts/feeds install -a
+}
+
+update_feeds() {
+    local target="$1"
+    fetch_feeds "$target"
+    install_feeds
 }
 
 #################################
