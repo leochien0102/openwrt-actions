@@ -175,6 +175,32 @@ update_feeds() {
     install_feeds
 }
 
+confirm_continue_build() {
+    local name="$1"
+    local timeout="${BUILD_CONFIRM_TIMEOUT:-30}"
+
+    if [[ -n "${CI:-}" || ! -t 0 ]]; then
+        msg "$name update done - continuing build"
+        return 0
+    fi
+
+    local reply
+    printf "\n\033[1;33m==> %s update done. Continue build? [Y/n] (auto-continue in %ss): \033[0m" "$name" "$timeout"
+    if read -r -t "$timeout" reply; then
+        case "$reply" in
+            [Nn]|[Nn][Oo])
+                msg "$name build cancelled"
+                return 1
+                ;;
+        esac
+    else
+        printf "\n"
+        msg "No response within ${timeout}s - continuing build"
+    fi
+
+    return 0
+}
+
 #################################
 # config
 #################################

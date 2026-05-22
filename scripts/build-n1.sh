@@ -14,6 +14,8 @@ if $UPDATE_ONLY; then
     exit 0
 fi
 
+confirm_continue_build "N1" || exit 0
+
 stage_rootfs      "$TARGET"
 run_packit        "mk_s905d_n1.sh"
 compress_firmware "$TARGET"

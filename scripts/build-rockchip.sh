@@ -16,6 +16,8 @@ if $UPDATE_ONLY; then
     exit 0
 fi
 
+confirm_continue_build "$TARGET" || exit 0
+
 apply_patches     "$TARGET"
 install_feeds
 load_config       "$TARGET"
