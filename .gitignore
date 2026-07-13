@@ -1,7 +1,41 @@
-.codegraph/
+.reasonix/
 lede-src/
 build/
 output/
 packit/
 shared/
 docs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Agent / Skill / MCP / Model
+.opencode/
+.claude/
+.codex/
+.cursor/
+.copilot/
+.windsurf/
+.codebuddy/
+.kiro/
+.mcp/
+*.gguf
+*.onnx
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temp
+*.tmp
+*.log
+*.bak
+tmp/
+temp/
+__pycache__/
+*.pyc
