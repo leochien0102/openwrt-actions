@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TARGET="${1:?Usage: init-worktree.sh <target>  (e.g. rockchip, armvirt, x86)}"
+TARGET="${1:?Usage: init-worktree.sh <target>  (e.g. rockchip, x86)}"
 source "$(dirname "$0")/lib.sh"
 
 update_source
