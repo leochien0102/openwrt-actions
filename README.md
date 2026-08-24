@@ -1,6 +1,6 @@
 # openwrt-ci
 
-基于 [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede) 的 OpenWRT 多 target 编译项目，支持 Rockchip（H28K）、Amlogic（N1）和 x86_64（PVE）设备。
+基于 [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede) 的 OpenWRT 多 target 编译项目，支持 Rockchip（H28K）和 x86_64（PVE）设备。
 
 ## 分支说明
 
@@ -15,24 +15,19 @@
 ├── configs/
 │   ├── feeds.conf               # 通用 feeds 配置
 │   ├── rockchip.config          # Rockchip 编译配置
-│   ├── armvirt.config           # Armvirt 编译配置
 │   └── x86.config               # x86_64 编译配置
 ├── patches/
 │   ├── common/                  # 所有 target 通用
 │   ├── base-files/              # 默认 IP 等基础配置（可被 target 专属 patch 覆盖）
 │   ├── rockchip/                # Rockchip 专属
-│   ├── armvirt/                 # Armvirt 专属
 │   └── x86/                     # x86_64 专属
 ├── scripts/
 │   ├── lib.sh                   # 公共函数库
 │   ├── build-rockchip.sh        # Rockchip 编译脚本
-│   ├── build-armvirt.sh         # Armvirt 编译脚本
-│   ├── build-n1.sh              # N1 打包脚本（依赖 armvirt 编译结果）
 │   └── build-x86.sh             # x86_64 编译脚本
 └── .github/
     └── workflows/
         ├── rockchip.yml         # Rockchip 每周自动构建
-        ├── armvirt.yml          # Armvirt 每周自动构建
         └── x86.yml              # x86_64 每周自动构建
 ```
 
@@ -42,7 +37,6 @@
 lede-src/    # upstream 源码
 build/       # 各 target 的 git worktree（含各自的 .ccache）
 output/      # 编译产物
-packit/      # unifreq/openwrt_packit
 shared/      # dl / feeds 共享缓存
 ```
 
@@ -88,14 +82,13 @@ mkdir -p shared/dl shared/feeds
 
 ```bash
 git -C lede-src worktree add --detach ../build/rockchip origin/master
-git -C lede-src worktree add --detach ../build/armvirt origin/master
 git -C lede-src worktree add --detach ../build/x86 origin/master
 ```
 
 创建完成后为各 worktree 建立共享目录的 symlink：
 
 ```bash
-for target in rockchip armvirt x86; do
+for target in rockchip x86; do
     ln -snf ../../shared/dl    build/$target/dl
     ln -snf ../../shared/feeds build/$target/feeds
 done
@@ -111,12 +104,6 @@ worktree 建好后，直接运行对应脚本即可，脚本会自动完成 sour
 # Rockchip H28K
 bash scripts/build-rockchip.sh
 
-# Armvirt（N1 第一步）
-bash scripts/build-armvirt.sh
-
-# N1 打包（N1 第二步，依赖 armvirt 编译结果）
-bash scripts/build-n1.sh
-
 # x86_64
 bash scripts/build-x86.sh
 ```
@@ -126,7 +113,6 @@ bash scripts/build-x86.sh
 | Target | 固件 | Packages |
 |--------|------|----------|
 | rockchip | `output/rockchip/firmware/` | `output/rockchip/packages/` |
-| armvirt/N1 | `output/armvirt/firmware/` | — |
 | x86 | `output/x86/firmware/` | `output/x86/packages/` |
 
 ### 自定义编译配置
@@ -148,18 +134,6 @@ cd ../..
 
 此后每次运行编译脚本都会自动加载更新后的配置，无需重复操作。
 
-### N1 内核
-
-内核文件通过 [leochien0102/openwrt_packit](https://github.com/leochien0102/openwrt_packit) fork 仓库的 `kernels/` 目录统一管理，使用 Git LFS 存储。`build-n1.sh` 会自动 clone 该仓库，无需手动放置内核文件。
-
-脚本会自动选用版本号最新的内核。如需锁定特定版本，编辑 `packit/whoami`：
-
-```bash
-KERNEL_VERSION="6.6.62-flippy-92+"
-```
-
-若锁定版本在 `kernels/` 目录中找不到对应文件，脚本会自动 fallback 到最新可用版本并打印警告。
-
 ## 自动构建（GitHub Actions）
 
 每周日 UTC 16:00（北京时间周一 00:00）自动触发，也可在 Actions 页面手动触发。
@@ -167,26 +141,6 @@ KERNEL_VERSION="6.6.62-flippy-92+"
 | Workflow | Target | Release tag |
 |----------|--------|-------------|
 | rockchip.yml | H28K | `rockchip-YYYYMMDD` |
-| armvirt.yml | N1 | `armvirt-YYYYMMDD` |
 | x86.yml | x86_64 | `x86-YYYYMMDD` |
 
 各保留最近 4 次 Release。
-
-### N1 内核更新
-
-内核文件存放在 [leochien0102/openwrt_packit](https://github.com/leochien0102/openwrt_packit) fork 仓库的 `kernels/` 目录下，使用 Git LFS 管理。
-
-更新内核时：
-
-```bash
-cd packit
-
-# 删除旧内核文件，添加新文件
-git rm kernels/*.tar.gz
-cp /path/to/new/kernels/*.tar.gz kernels/
-git add kernels/
-git commit -m "Kernels: bump to <version>"
-git push origin master
-```
-
-本地下次运行 `build-n1.sh` 时会自动 pull 最新内核，CI 每次也会从 fork clone 最新版本。
