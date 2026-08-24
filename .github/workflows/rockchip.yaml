@@ -98,7 +98,6 @@ jobs:
             |--------|--------|
             | Rockchip H28K | ✅ |
           files: release/*
-          prerelease: true
 
       - name: Cleanup old releases (keep 4)
         uses: dev-drprasad/delete-older-releases@v0.3.4
