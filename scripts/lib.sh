@@ -14,6 +14,39 @@ msg() {
     echo -e "\n\033[1;32m==> $*\033[0m"
 }
 
+#################################
+# common args: -fw 3|4
+#################################
+# 解析通用参数。-fw / --fw 取出 firewall 世代，其余参数原样留在 REST_ARGS。
+parse_common_args() {
+    REST_ARGS=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -fw|--fw)      FW="${2:-}"; shift 2 ;;
+            -fw=*|--fw=*)  FW="${1#*=}"; shift ;;
+            *)             REST_ARGS+=("$1"); shift ;;
+        esac
+    done
+}
+
+# 未显式指定 -fw 时，按 target 取默认世代，并校验取值。
+resolve_fw() {
+    local target="$1"
+
+    if [[ -z "${FW:-}" ]]; then
+        case "$target" in
+            rockchip) FW=4 ;;
+            *)        FW=3 ;;
+        esac
+        msg "No -fw given, defaulting to fw$FW for target '$target'"
+    fi
+
+    case "$FW" in
+        3|4) ;;
+        *) err "Invalid -fw value: '$FW' (expected 3 or 4)"; exit 1 ;;
+    esac
+}
+
 err() {
     echo -e "\n\033[1;31m[ERROR] $*\033[0m" >&2
 }
@@ -136,16 +169,24 @@ apply_patches() {
 load_feeds_conf() {
     local target="$1"
 
-    # Per-target conf takes priority, fall back to common, then upstream default
-    if [[ -f "$CONFIG_DIR/$target.feeds.conf" ]]; then
-        cp "$CONFIG_DIR/$target.feeds.conf" feeds.conf
-        msg "Using feeds.conf: $target.feeds.conf"
-    elif [[ -f "$CONFIG_DIR/feeds.conf" ]]; then
-        cp "$CONFIG_DIR/feeds.conf" feeds.conf
-        msg "Using feeds.conf: configs/feeds.conf"
-    else
-        err "No feeds.conf found in configs/ — using upstream feeds.conf.default"
-    fi
+    # 优先级：target+fw > fw > target > 通用。fw 世代通常只影响个别 feed 的分支。
+    local candidates=(
+        "$target.feeds.fw$FW.conf"
+        "feeds.fw$FW.conf"
+        "$target.feeds.conf"
+        "feeds.conf"
+    )
+
+    local c
+    for c in "${candidates[@]}"; do
+        if [[ -f "$CONFIG_DIR/$c" ]]; then
+            cp "$CONFIG_DIR/$c" feeds.conf
+            msg "Using feeds.conf: $c"
+            return 0
+        fi
+    done
+
+    err "No feeds.conf found in configs/ — using upstream feeds.conf.default"
 }
 
 fetch_feeds() {
@@ -206,8 +247,20 @@ confirm_continue_build() {
 load_config() {
     local target="$1"
 
-    msg "Loading config"
+    msg "Loading config: $target.config (fw$FW)"
     cp "$CONFIG_DIR/$target.config" .config
+
+    # <target>.config 保持 fw 世代中立，差异以叠加文件的形式追加。
+    # kconfig 后出现的赋值覆盖先出现的，所以 target 级叠加放在通用叠加之后。
+    local overlay
+    for overlay in "fw$FW.config" "$target.fw$FW.config"; do
+        if [[ -f "$CONFIG_DIR/$overlay" ]]; then
+            msg "Applying overlay: $overlay"
+            printf '\n' >> .config
+            cat "$CONFIG_DIR/$overlay" >> .config
+        fi
+    done
+
     make defconfig
 }
 
