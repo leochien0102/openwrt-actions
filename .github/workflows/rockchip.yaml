@@ -68,7 +68,7 @@ jobs:
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-rockchip
+          name: firmware-rockchip-fw${{ env.FW }}
           path: output/rockchip/firmware/
           retention-days: 1
 
@@ -81,12 +81,12 @@ jobs:
     steps:
       - name: Set release tag
         id: tag
-        run: echo "tag=rockchip-$(TZ=Asia/Shanghai date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=rockchip-fw${{ env.FW }}-$(TZ=Asia/Shanghai date +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: Download firmware
         uses: actions/download-artifact@v4
         with:
-          name: firmware-rockchip
+          name: firmware-rockchip-fw${{ env.FW }}
           path: release/
 
       - name: Create release
@@ -97,9 +97,9 @@ jobs:
           body: |
             Rockchip weekly build — ${{ steps.tag.outputs.tag }}
 
-            | Target | Status |
-            |--------|--------|
-            | Rockchip H28K | ✅ |
+            | Target | Firewall | Status |
+            |--------|----------|--------|
+            | Rockchip H28K | fw${{ env.FW }} | ✅ |
           files: release/*
 
       - name: Cleanup old releases (keep 4)
