@@ -1,0 +1,21 @@
+# OpenWrt 构建仓库：强制 LF 行尾，避免 Windows checkout (core.autocrlf=true)
+# 时脚本/配置被注入 CRLF 导致 shebang 失效或解析失败。
+* text=auto eol=lf
+
+# 脚本与配置类
+*.sh        text eol=lf
+*.config    text eol=lf
+*.conf      text eol=lf
+*.patch     text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+Makefile    text eol=lf
+
+# 二进制（不做行尾处理）
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
