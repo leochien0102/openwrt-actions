@@ -1,41 +1,251 @@
-.reasonix/
+# OpenWrt 构建运行时产物（WSL 内生成，不进 git）
 lede-src/
 build/
 output/
 shared/
+
+# 本地设计/评审文档（默认不入库）
 docs/
 
-# IDE
-.vscode/
-.idea/
+# Agent 本地状态
+AGENTS.md
+
+#===============================================================
+# common
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and secrets
+#
+# ⚠️ `.env.*` 只适合没有"多模式 env 文件"惯例的技术栈（Go / Java / Python）。
+#    前端框架（Vue CLI、Vite、CRA、Next）的 .env.<mode> 是构建期配置、惯例入库，
+#    组合本片段时请改用 node/vue/react 片段里的 .env.local / .env.*.local 写法，
+#    否则新增 mode 文件会被静默漏提交（老文件已跟踪、不报错，最难查）。
+.env
+.env.*
+!.env.example
+!.env.sample
+*.local
+*.secret
+*.secrets
+secrets/
+
+# Temporary files
+*.tmp
+*.temp
 *.swp
 *.swo
 *~
-
-# Agent / Skill / MCP / Model
-.opencode/
-.claude/
-.codex/
-.cursor/
-.copilot/
-.windsurf/
-.codebuddy/
-.kiro/
-.mcp/
-AGENTS.md
-*.gguf
-*.onnx
-
-# OS
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# Temp
-*.tmp
-*.log
-*.bak
+.cache/
 tmp/
 temp/
+
+# Archives and local dumps
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+*.bak
+*.backup
+*.dump
+*.sql.gz
+
+
+
+#===============================================================
+# python
+# Bytecode
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Test and coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Local env
+.env
+.env.*
+!.env.example
+
+
+
+#===============================================================
+# ai-agent
+# AI assistants / agents local state
+.agents/
+.agent/
+.ai/
+.assistant/
+.chat/
+.sessions/
+.traces/
+.runs/
+
+# Codex / Claude / Cursor / Continue / other agent local artifacts
+.codex/
+.claude/
+.opencode/
+.pi/
+.reasonix/
+.qoder/
+.trae/
+.cursor/rules.local
+.cursor/index/
+.continue/index/
+.continue/sessions/
+
+# Agent outputs and scratchpads
+agent-output/
+agent-outputs/
+ai-output/
+ai-outputs/
+scratch/
+memory.local.*
+*.trace.json
+*.trace.jsonl
+*.transcript.json
+*.transcript.jsonl
+
+# Keep shared examples
+!.env.example
+!.env.sample
+!*.example.json
+!*.sample.json
+
+
+#===============================================================
+# mcp
+# MCP local configuration and credentials
+.mcp/
+mcp.local.json
+mcp.*.local.json
+servers.local.json
+credentials.json
+credentials.*.json
+tokens.json
+tokens.*.json
+
+# MCP runtime state
+mcp-cache/
+mcp-data/
+mcp-logs/
+mcp-sessions/
+
+# Keep shareable configuration examples
+!mcp.example.json
+!mcp.sample.json
+!servers.example.json
+!servers.sample.json
+
+
+
+#===============================================================
+# spec-kit
+# GitHub Spec Kit local tooling
+#
+# Convention:
+# - Spec Kit initialization files and agent skills are local tool state.
+# - Collaborative specification and planning documents should be written under docs/.
+
+.specify/
+.agents/
+.claude/
+
+# Common Spec Kit / agent runtime leftovers
+specs/
+.specify-*/
+speckit-cache/
+speckit-logs/
+*.speckit.log
+
+# Keep shared documentation artifacts versioned
+#
+# ⚠️ 不要在这里写 `!docs/` `!docs/**`：
+#    1) 本文件没有任何一条规则会忽略 docs/，这个"兜底"本就是空操作；
+#    2) 它会反向撤销 common 片段里的 *.log / *.local / *.zip 等规则对
+#       docs/ 内文件的忽略，等于在 docs/ 下开了个后门。
+#    docs/ 靠"不去忽略它"来保留即可，不需要显式取反。
+
+
+#===============================================================
+# plugins-skills
+# Local plugin and skill development state
+.plugins/
+.skills/
+plugins/cache/
+plugins/tmp/
+skills/cache/
+skills/tmp/
+
+# Packaged artifacts
+*.codex-plugin.zip
+*.skill.zip
+plugin-build/
+skill-build/
+
+# Keep manifests and documentation
+!.codex-plugin/plugin.json
+!SKILL.md
+
+
+
+#===============================================================
+# jetbrains
+# JetBrains IDE local state
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+.idea/**/httpRequests
+.idea/**/dataSources/
+.idea/**/dataSources.local.xml
+
+# Generated project files
+*.iml
+
+
+
+# vscode
+.vscode/
+
