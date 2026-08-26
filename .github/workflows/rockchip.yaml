@@ -7,6 +7,9 @@ on:
 
 env:
   TZ: Asia/Shanghai
+  # 统一编译 fw3（iptables）版本。fw4 已在本地 H28K 验证通过，
+  # 稳定运行一段时间后把这里改成 '4' 即可整体切换。
+  FW: '3'
 
 jobs:
   build:
@@ -30,15 +33,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: shared/dl
-          key: dl-rockchip-${{ hashFiles('configs/rockchip.config', 'configs/feeds.conf') }}
+          key: dl-rockchip-fw${{ env.FW }}-${{ hashFiles('configs/rockchip.config', format('configs/fw{0}.config', env.FW), format('configs/feeds.fw{0}.conf', env.FW)) }}
           restore-keys: dl-rockchip-
 
       - name: Restore feeds cache
         uses: actions/cache@v4
         with:
           path: shared/feeds
-          key: feeds-rockchip-${{ hashFiles('configs/feeds.conf') }}
-          restore-keys: feeds-rockchip-
+          key: feeds-rockchip-fw${{ env.FW }}-${{ hashFiles(format('configs/feeds.fw{0}.conf', env.FW)) }}
+          restore-keys: feeds-rockchip-fw${{ env.FW }}-
 
 
       - name: Install dependencies
@@ -60,7 +63,7 @@ jobs:
         run: mkdir -p shared/dl shared/feeds
 
       - name: Build
-        run: bash scripts/build-rockchip.sh
+        run: bash scripts/build-rockchip.sh -fw ${{ env.FW }}
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
