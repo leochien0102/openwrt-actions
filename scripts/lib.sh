@@ -24,6 +24,14 @@ parse_common_args() {
         case "$1" in
             -fw|--fw)      FW="${2:-}"; shift 2 ;;
             -fw=*|--fw=*)  FW="${1#*=}"; shift ;;
+            # 只有上面两种写法算数。'-fw4' 这类粘在一起的形式过去会掉进 *)
+            # 分支被当成普通参数，于是 --update-only 落到 REST_ARGS[1]，位置
+            # 判断看不见它——脚本转而跑完整固件构建，而 FW 因为 target 默认值
+            # 恰好也是 4，从输出上完全看不出哪里不对。宁可直接报错。
+            -fw*|--fw*)
+                err "Unrecognized option '$1' -- write '-fw 4' or '--fw=4'"
+                exit 1
+                ;;
             *)             REST_ARGS+=("$1"); shift ;;
         esac
     done
@@ -47,6 +55,18 @@ resolve_fw() {
         3|4) ;;
         *) err "Invalid -fw value: '$FW' (expected 3 or 4)"; exit 1 ;;
     esac
+}
+
+# REST_ARGS 里是否出现过某个标志。位置无关——用位置判断的话，任何在它前面
+# 出现的参数都会让标志失效。
+has_arg() {
+    local want="$1"
+    shift
+    local a
+    for a in "$@"; do
+        [[ "$a" == "$want" ]] && return 0
+    done
+    return 1
 }
 
 err() {

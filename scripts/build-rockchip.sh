@@ -9,7 +9,7 @@ parse_common_args "$@"
 resolve_fw "$TARGET"
 
 UPDATE_ONLY=false
-[[ "${REST_ARGS[0]:-}" == "--update-only" ]] && UPDATE_ONLY=true
+has_arg --update-only "${REST_ARGS[@]}" && UPDATE_ONLY=true
 
 update_source
 prepare_worktree  "$TARGET"
