@@ -1,0 +1,62 @@
+luci-app-firewall: drop the dead TCP CCA option
+
+The "TCP CCA" dropdown in Firewall -> Zone Settings -> General Settings is
+a coolsnowwolf/luci downstream addition that was never wired to anything.
+It writes firewall.@defaults[0].tcpcca and nothing reads that key: grep
+finds no consumer in the lede package tree, in any feed, or in fw4.uc.
+Upstream OpenWrt's luci-app-firewall has no such option at all.
+
+Measured on the device: selecting "reno" and applying leaves
+net.ipv4.tcp_congestion_control at cubic -- which is simply the kernel
+default (CONFIG_DEFAULT_TCP_CONG="cubic"). All three values are equally
+inert; cubic only looks like it works because it matches that default.
+
+The one component that really does apply a CCA from UCI is turboacc's init
+script, and it reads turboacc.config.tcpcca out of /etc/config/turboacc --
+a different file behind an identically named dropdown. fw4.config removes
+turboacc, so on this build nothing sets a CCA at all.
+
+Besides being misleading, the option costs an "unknown option 'tcpcca'"
+warning on every fw4 run, and rmempty=false means the key gets rewritten
+into /etc/config/firewall every time the page is saved, so it cannot be
+cleaned up from the device while the dropdown exists.
+
+Removing it: the closure and both call sites go, leaving the fullcone
+branch otherwise untouched. Congestion control belongs in sysctl, not in a
+firewall UI -- see FriendlyWrt, which ships it commented out in
+/etc/sysctl.d/31-optmize-proxy.conf and never touches luci-app-firewall.
+
+diff --git a/applications/luci-app-firewall/htdocs/luci-static/resources/view/firewall/zones.js b/applications/luci-app-firewall/htdocs/luci-static/resources/view/firewall/zones.js
+index 3495fd8..4c5251f 100644
+--- a/applications/luci-app-firewall/htdocs/luci-static/resources/view/firewall/zones.js
++++ b/applications/luci-app-firewall/htdocs/luci-static/resources/view/firewall/zones.js
+@@ -32,15 +32,6 @@ return view.extend({
+ 	renderZones([ctHelpers, fwDefaults]) {
+ 		let m, s, o, out;
+ 		const fw4 = L.hasSystemFeature('firewall4');
+-		const addTCPCCAOption = () => {
+-			const tcpcca = s.option(form.ListValue, 'tcpcca', _('TCP CCA'),
+-				_('TCP congestion control algorithm.'));
+-			tcpcca.value('bbr', 'bbr');
+-			tcpcca.value('cubic', 'cubic');
+-			tcpcca.value('reno', 'reno');
+-			tcpcca.default = 'cubic';
+-			tcpcca.rmempty = false;
+-		};
+ 
+ 		m = new form.Map('firewall', _('Firewall - Zone Settings'),
+ 			_('The firewall creates zones over your network interfaces to control network traffic flow.'));
+@@ -69,13 +60,9 @@ return view.extend({
+ 			o.value('0', _('Disable'));
+ 			o.value('1', _('FULLCONENAT'));
+ 			o.value('2', _('Broadcom Fullcone NAT1'));
+-			addTCPCCAOption();
+ 			if (fw4)
+ 				o = s.option(form.Flag, 'fullcone6', _('Enable FullCone NAT6'));
+ 		}
+-		else {
+-			addTCPCCAOption();
+-		}
+ 
+ 		let p = [
+ 			s.option(form.ListValue, 'input', _('Input')),
