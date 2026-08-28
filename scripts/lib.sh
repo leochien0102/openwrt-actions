@@ -139,10 +139,46 @@ apply_patch_dir() {
     done
 }
 
+# patches/feeds/<feed>/*.patch —— 打在 feed 检出上，不是 lede 源码树。
+#
+# 补丁路径相对 feed 根目录，也就是 `git -C <feed> diff` 的原生输出，不需要改写。
+# 应用时直接进入 shared/feeds/<feed>，不走构建树里的 feeds 符号链接：GNU patch
+# 2.7 起默认拒绝穿过符号链接写入，走链接会以 "can't find file to patch" 失败。
+#
+# 时机由调用点保证——apply_patches 在 fetch_feeds 之后、install_feeds 之前跑。
+# feeds install 只建指回检出的符号链接，所以补丁能原样进入构建。
+apply_feed_patches() {
+    local dir="$PATCH_DIR/feeds"
+    [[ -d "$dir" ]] || return 0
+
+    local feed_dir name feed p
+    for feed_dir in "$dir"/*/; do
+        [[ -d "$feed_dir" ]] || continue
+        name=$(basename "$feed_dir")
+        feed="$SHARED_DIR/feeds/$name"
+
+        if [[ ! -d "$feed" ]]; then
+            err "patches/feeds/$name: no matching feed checkout, skipping"
+            continue
+        fi
+
+        local patches=( "$feed_dir"*.patch )
+        [[ -f "${patches[0]}" ]] || continue
+
+        msg "Patching feed: $name"
+        for p in "${patches[@]}"; do
+            ( cd "$feed" && apply_patch_dir_single "$p" )
+        done
+    done
+}
+
 apply_patches() {
     local target="$1"
 
     msg "Applying patches"
+
+    apply_feed_patches
+
     apply_patch_dir "$PATCH_DIR/common"
 
     # Apply base-files patches, skipping any that are overridden by a same-named
@@ -195,10 +231,25 @@ load_feeds_conf() {
     err "No feeds.conf found in configs/ — using upstream feeds.conf.default"
 }
 
+# 丢弃 feed 检出里的本地改动。patches/feeds/ 的补丁会让检出变脏，
+# 而 scripts/feeds update 在脏树上会因 git pull 拒绝覆盖而失败。每次 update
+# 前复位，补丁随后由 apply_patches 重新应用——feed 检出因此始终是纯上游内容
+# 加一层当次构建的补丁，不会累积。
+reset_feed_worktrees() {
+    local d
+    for d in feeds/*/; do
+        [[ -d "$d/.git" ]] || continue
+        git -C "$d" checkout -- . 2>/dev/null || true
+        # checkout 只还原被跟踪的文件，patch 失败时留下的 .rej/.orig 是未跟踪的
+        find "$d" \( -name '*.rej' -o -name '*.orig' \) -delete 2>/dev/null || true
+    done
+}
+
 fetch_feeds() {
     local target="$1"
     load_feeds_conf "$target"
     msg "Updating feeds"
+    reset_feed_worktrees
     if ! ./scripts/feeds update -a; then
         msg "Feed update failed (force-pushed upstream?), resetting diverged feeds and retrying"
         for d in feeds/*/; do
