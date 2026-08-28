@@ -34,9 +34,11 @@ resolve_fw() {
     local target="$1"
 
     if [[ -z "${FW:-}" ]]; then
+        # 已验证可用 fw4 的 target 逐个列出，新 target 先落到 fw3（lede 基线），
+        # 验证过再加进来——避免新 target 默默继承一个没测过的世代。
         case "$target" in
-            rockchip) FW=4 ;;
-            *)        FW=3 ;;
+            rockchip|x86) FW=4 ;;
+            *)            FW=3 ;;
         esac
         msg "No -fw given, defaulting to fw$FW for target '$target'"
     fi
@@ -166,6 +168,10 @@ apply_patches() {
 #################################
 # feeds
 #################################
+# 注意：shared/feeds 是所有 target 共用的单一检出，feeds.conf 决定其分支
+# （fw3/fw4 两份只差 helloworld 的 dev-fw3 / dev-fw4）。两个 target 跑不同世代
+# 时，每次切换都会把 helloworld 重新检出到另一分支——这也是把 x86 一并切到
+# fw4 的理由之一。
 load_feeds_conf() {
     local target="$1"
 
