@@ -16,8 +16,12 @@ resolve_fw "$TARGET"
 
 update_source
 prepare_worktree  "$TARGET"
+# 顺序与 build-<target>.sh 保持一致：feed 补丁必须落在 fetch_feeds 之后、
+# install_feeds 之前（apply_feed_patches 打在 shared/feeds 检出上，fetch 会
+# reset 掉未提交改动，所以不能在 fetch 之前打）。
+fetch_feeds       "$TARGET"
 apply_patches     "$TARGET"
-update_feeds      "$TARGET"
+install_feeds
 load_config       "$TARGET"
 
 msg "Worktree for '$TARGET' (fw$FW) initialized — run 'make menuconfig' in build/$TARGET to customize"

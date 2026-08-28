@@ -266,12 +266,6 @@ install_feeds() {
     ./scripts/feeds install -a
 }
 
-update_feeds() {
-    local target="$1"
-    fetch_feeds "$target"
-    install_feeds
-}
-
 confirm_continue_build() {
     local name="$1"
     local timeout="${BUILD_CONFIRM_TIMEOUT:-30}"
