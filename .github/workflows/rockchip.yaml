@@ -4,17 +4,29 @@ on:
   schedule:
     - cron: '0 16 * * 0'  # UTC 16:00 Sunday = Beijing 00:00 Monday
   workflow_dispatch:
+    inputs:
+      fw:
+        description: 编译哪个防火墙世代
+        type: choice
+        default: all
+        options:
+          - all
+          - '3'
+          - '4'
 
 env:
   TZ: Asia/Shanghai
-  # 统一编译 fw3（iptables）版本。fw4 已在本地 H28K 验证通过，
-  # 稳定运行一段时间后把这里改成 '4' 即可整体切换。
-  FW: '3'
 
 jobs:
   build:
-    name: Build Rockchip
+    name: Build Rockchip (fw${{ matrix.fw }})
     runs-on: ubuntu-24.04
+    strategy:
+      # 一个世代编不过不该连累另一个，两边的失败一次看全。
+      fail-fast: false
+      matrix:
+        # 定时触发时 inputs 为空，两个世代都编；手动触发可只挑一个。
+        fw: ${{ fromJSON(inputs.fw == '3' && '["3"]' || inputs.fw == '4' && '["4"]' || '["3","4"]') }}
     steps:
       - name: Free disk space
         uses: jlumbroso/free-disk-space@main
@@ -33,16 +45,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: shared/dl
-          key: dl-rockchip-fw${{ env.FW }}-${{ hashFiles('configs/rockchip.config', format('configs/fw{0}.config', env.FW), format('configs/feeds.fw{0}.conf', env.FW)) }}
+          key: dl-rockchip-fw${{ matrix.fw }}-${{ hashFiles('configs/rockchip.config', format('configs/fw{0}.config', matrix.fw), 'configs/feeds.conf') }}
           restore-keys: dl-rockchip-
 
       - name: Restore feeds cache
         uses: actions/cache@v4
         with:
           path: shared/feeds
-          key: feeds-rockchip-fw${{ env.FW }}-${{ hashFiles(format('configs/feeds.fw{0}.conf', env.FW)) }}
-          restore-keys: feeds-rockchip-fw${{ env.FW }}-
-
+          # feeds 不再分世代：configs/feeds.conf 两个世代共用，所以两条 matrix
+          # 腿共享同一份缓存。并发保存时其中一条会因键已存在而跳过，无害。
+          key: feeds-rockchip-${{ hashFiles('configs/feeds.conf') }}
+          restore-keys: feeds-rockchip-
 
       - name: Install dependencies
         run: |
@@ -63,12 +76,12 @@ jobs:
         run: mkdir -p shared/dl shared/feeds
 
       - name: Build
-        run: bash scripts/build-rockchip.sh -fw ${{ env.FW }}
+        run: bash scripts/build-rockchip.sh -fw ${{ matrix.fw }}
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-rockchip-fw${{ env.FW }}
+          name: firmware-rockchip-fw${{ matrix.fw }}
           path: output/rockchip/firmware/
           retention-days: 1
 
@@ -81,13 +94,16 @@ jobs:
     steps:
       - name: Set release tag
         id: tag
-        run: echo "tag=rockchip-fw${{ env.FW }}-$(TZ=Asia/Shanghai date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=rockchip-$(TZ=Asia/Shanghai date +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: Download firmware
         uses: actions/download-artifact@v4
         with:
-          name: firmware-rockchip-fw${{ env.FW }}
+          # 一次 release 收齐这次跑出来的所有世代。合并到同一目录是安全的：
+          # collect_output 已经把 fw<N> 写进文件名，不会撞名。
+          pattern: firmware-rockchip-fw*
           path: release/
+          merge-multiple: true
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -97,9 +113,11 @@ jobs:
           body: |
             Rockchip weekly build — ${{ steps.tag.outputs.tag }}
 
-            | Target | Firewall | Status |
-            |--------|----------|--------|
-            | Rockchip H28K | fw${{ env.FW }} | ✅ |
+            目标：Rockchip H28K
+
+            文件名里的 `fw3` / `fw4` 标出防火墙世代：
+            `fw3` = iptables + fw3，`fw4` = nftables + firewall4。
+            两者由同一份源码构建，差异只在 `configs/fw3.config` 与 `fw4.config`。
           files: release/*
 
       - name: Cleanup old releases (keep 4)
