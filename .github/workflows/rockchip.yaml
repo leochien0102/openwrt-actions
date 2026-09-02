@@ -89,6 +89,10 @@ jobs:
     name: Release
     runs-on: ubuntu-24.04
     needs: build
+    # 有哪个世代编成了就发哪个。fail-fast 已经关掉，但默认的 needs 语义是
+    # 全部成功才继续——那样 fw3 挂掉会连带扣下编好的 fw4。两条腿都挂时这里
+    # 会因为找不到 artifact 而失败，正是想要的结果。
+    if: ${{ !cancelled() }}
     permissions:
       contents: write
     steps:
