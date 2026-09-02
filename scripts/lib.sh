@@ -353,7 +353,7 @@ build_firmware() {
 
 #################################
 # collect output
-# - firmware files -> output/<target>/firmware/<ts>-<n>  (accumulated)
+# - firmware files -> output/<target>/firmware/<ts>-fw<N>-<n>  (accumulated)
 # - packages       -> output/<target>/packages/             (replaced)
 #################################
 collect_output() {
@@ -372,8 +372,10 @@ collect_output() {
     while IFS= read -r -d '' f; do
         local base
         base=$(basename "$f")
-        mv "$f" "$firmware_dir/${ts}-${base}"
-        echo "  ${ts}-${base}"
+        # 带上世代：两个世代的固件基名完全相同，不标出来就分不清，
+        # 而 GitHub Release 的资产名还必须唯一。
+        mv "$f" "$firmware_dir/${ts}-fw${FW}-${base}"
+        echo "  ${ts}-fw${FW}-${base}"
         (( count++ )) || true
     done < <(find bin/targets -maxdepth 4 -type f \
         \( -name "*.img*" -o -name "*.bin" -o -name "*.manifest" -o -name "*.qcow2" \) \
