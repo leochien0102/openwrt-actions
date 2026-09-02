@@ -13,11 +13,28 @@ inert; cubic only looks like it works because it matches that default.
 
 The one component that really does apply a CCA from UCI is turboacc's init
 script, and it reads turboacc.config.tcpcca out of /etc/config/turboacc --
-a different file behind an identically named dropdown. fw4.config removes
-turboacc, so on this build nothing sets a CCA at all.
+a different file behind an identically named dropdown. It applies the value
+with a plain sysctl and never touches the firewall config, which is exactly
+why the firewall page's copy has no reader.
+
+This holds in both firewall generations, and the patch is applied to both.
+The dropdown is not gated on fw4: zones.js calls addTCPCCAOption() from
+both branches of the fullcone test, so it renders under fw3 as well. On fw3
+it is arguably worse, because turboacc ships in DEFAULT_PACKAGES.router and
+its own working TCP CCA dropdown sits one page away -- two controls with the
+same label, one of which does nothing.
+
+Contrast fullcone on the same page, which is live in both generations and
+stays: firewall3 parses it (FW3_OPT("fullcone", int, defaults, fullcone)),
+firewall4 reads it via fw4.default_option("fullcone"), and turboacc writes
+that same key rather than a private one. Wiring tcpcca up the same way would
+mean teaching firewall4 to run a sysctl -- congestion control is not a
+packet-filtering concern, and on fw4 kmod-tcp-bbr is not installed, so one
+of the three offered values could not work anyway.
 
 Besides being misleading, the option costs an "unknown option 'tcpcca'"
-warning on every fw4 run, and rmempty=false means the key gets rewritten
+warning on every fw4 run (fw3 was not checked for the equivalent), and
+rmempty=false means the key gets rewritten
 into /etc/config/firewall every time the page is saved, so it cannot be
 cleaned up from the device while the dropdown exists.
 
