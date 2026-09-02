@@ -224,10 +224,11 @@ apply_patches() {
 #################################
 # feeds
 #################################
-# 注意：shared/feeds 是所有 target 共用的单一检出，feeds.conf 决定其分支
-# （fw3/fw4 两份只差 helloworld 的 dev-fw3 / dev-fw4）。两个 target 跑不同世代
-# 时，每次切换都会把 helloworld 重新检出到另一分支——这也是把 x86 一并切到
-# fw4 的理由之一。
+# 注意：shared/feeds 是所有 target 共用的单一检出，feeds.conf 决定其分支。
+# 现在只有一份 configs/feeds.conf——helloworld 那个分支是防火墙世代无关的
+# （Makefile 按 PACKAGE_firewall4 选透明代理后端，ssr-rules 运行时探测
+# USE_TABLES），两个世代共用，所以在世代之间来回切不再引起 feed 重新检出。
+# 下面按 target / 世代分文件的查找顺序仍然保留，真需要时可以加回来。
 load_feeds_conf() {
     local target="$1"
 
