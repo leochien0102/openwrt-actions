@@ -109,19 +109,40 @@ jobs:
           path: release/
           merge-multiple: true
 
+      # 表格按这次实际拿到的产物生成。手动触发可能只编一个世代，
+      # 某条腿也可能失败（release 用 if: !cancelled() 照发），静态表格会说谎。
+      - name: Compose release notes
+        id: notes
+        env:
+          FW_INPUT: ${{ inputs.fw }}
+        run: |
+          case "$FW_INPUT" in
+            3) requested='3' ;;
+            4) requested='4' ;;
+            *) requested='3 4' ;;
+          esac
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            echo 'x86 weekly build — ${{ steps.tag.outputs.tag }}'
+            echo
+            echo '| Target | Firewall | Status |'
+            echo '|--------|----------|--------|'
+            for n in $requested; do
+              [ "$n" = 3 ] && backend=iptables || backend=nftables
+              if ls release/*-fw"$n"-* >/dev/null 2>&1; then st='✅'; else st='❌'; fi
+              echo "| x86_64（qcow2） | fw$n ($backend) | $st |"
+            done
+            echo
+            echo '两个世代由同一份源码构建，差异只在 `configs/fw3.config` 与 `fw4.config`。'
+            echo RELEASE_NOTES_EOF
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: ${{ steps.tag.outputs.tag }}
-          body: |
-            x86 weekly build — ${{ steps.tag.outputs.tag }}
-
-            目标：x86_64（qcow2）
-
-            文件名里的 `fw3` / `fw4` 标出防火墙世代：
-            `fw3` = iptables，`fw4` = nftables。
-            两者由同一份源码构建，差异只在 `configs/fw3.config` 与 `fw4.config`。
+          body: ${{ steps.notes.outputs.body }}
           files: release/*
 
       - name: Cleanup old releases (keep 4)
