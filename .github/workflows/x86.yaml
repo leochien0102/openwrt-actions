@@ -120,7 +120,7 @@ jobs:
             目标：x86_64（qcow2）
 
             文件名里的 `fw3` / `fw4` 标出防火墙世代：
-            `fw3` = iptables + fw3，`fw4` = nftables + firewall4。
+            `fw3` = iptables，`fw4` = nftables。
             两者由同一份源码构建，差异只在 `configs/fw3.config` 与 `fw4.config`。
           files: release/*
 
