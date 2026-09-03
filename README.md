@@ -13,9 +13,11 @@
 ```
 .
 ├── configs/
-│   ├── feeds.conf               # 通用 feeds 配置
-│   ├── rockchip.config          # Rockchip 编译配置
-│   └── x86.config               # x86_64 编译配置
+│   ├── feeds.conf               # 通用 feeds 配置（两个防火墙世代共用）
+│   ├── fw3.config               # fw3（iptables）世代叠加，有意留空
+│   ├── fw4.config               # fw4（nftables）世代叠加
+│   ├── rockchip.config          # Rockchip 编译配置（fw 世代中立）
+│   └── x86.config               # x86_64 编译配置（fw 世代中立）
 ├── patches/
 │   ├── common/                  # 所有 target 通用
 │   ├── base-files/              # 默认 IP 等基础配置（可被 target 专属 patch 覆盖）
@@ -27,8 +29,8 @@
 │   └── build-x86.sh             # x86_64 编译脚本
 └── .github/
     └── workflows/
-        ├── rockchip.yml         # Rockchip 每周自动构建
-        └── x86.yml              # x86_64 每周自动构建
+        ├── rockchip.yaml        # Rockchip 每周自动构建（fw3 + fw4 matrix）
+        └── x86.yaml             # x86_64 每周自动构建（fw3 + fw4 matrix）
 ```
 
 以下目录由编译机运行时自动创建，不进 git：
@@ -101,10 +103,11 @@ done
 worktree 建好后，直接运行对应脚本即可，脚本会自动完成 source 更新、patch、feeds、config 加载和编译：
 
 ```bash
-# Rockchip H28K
-bash scripts/build-rockchip.sh
+# Rockchip H28K（不传 -fw 默认 fw4）
+bash scripts/build-rockchip.sh          # fw4
+bash scripts/build-rockchip.sh -fw 3    # fw3（iptables）
 
-# x86_64
+# x86_64（同样默认 fw4）
 bash scripts/build-x86.sh
 ```
 
@@ -136,11 +139,13 @@ cd ../..
 
 ## 自动构建（GitHub Actions）
 
-每周日 UTC 16:00（北京时间周一 00:00）自动触发，也可在 Actions 页面手动触发。
+每周日 UTC 16:00（北京时间周一 00:00）自动触发，也可在 Actions 页面手动触发——手动触发可通过 `fw` 输入只编一个世代（`all` / `3` / `4`，默认两个都编）。
+
+每个 workflow 用 matrix 同时编译 fw3（iptables）与 fw4（nftables）两个世代，`fail-fast: false`，一条腿失败不连累另一条。两代由同一份源码构建：luci-app-ssr-plus 的 Makefile 按 `PACKAGE_firewall4` 自动选择透明代理后端，ssr-rules 运行时再探测 `USE_TABLES`；世代差异只在 `configs/fw3.config`（有意留空）与 `configs/fw4.config`。
 
 | Workflow | Target | Release tag |
 |----------|--------|-------------|
-| rockchip.yml | H28K | `rockchip-YYYYMMDD` |
-| x86.yml | x86_64 | `x86-YYYYMMDD` |
+| rockchip.yaml | H28K | `rockchip-YYYYMMDD` |
+| x86.yaml | x86_64 | `x86-YYYYMMDD` |
 
-各保留最近 4 次 Release。
+release 用 `if: !cancelled()` 把编成的世代都发出去：一次 release 收齐当次所有固件，世代写在文件名里（`<ts>-fw<N>-<原名>`），表格按实际产物生成、失败的腿标 ❌。各保留最近 4 次 Release。
