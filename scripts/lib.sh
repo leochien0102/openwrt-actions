@@ -284,6 +284,13 @@ fetch_feeds() {
 
 install_feeds() {
     msg "Installing feeds"
+    # 先按来源装 luciextras 的包。同名包同时存在于多个 feed 时，scripts/feeds
+    # 取 feeds.conf 里第一个命中的（install_package 里已装过的直接 return），
+    # 而 luciextras 排在最后必输。曾因此让上游的 luci-app-accesscontrol-plus
+    # (1-r12) 顶掉我们这份，装出一个没有 status 命令、也不认 fw4 的旧版，
+    # 表现是 LuCI 状态灯恒为“未运行”、fw4 下规则根本装不上。
+    # 已安装的包后续会被跳过，所以这一趟放前面就等于给 luciextras 提权。
+    ./scripts/feeds install -p luciextras -a
     ./scripts/feeds install -a
 }
 
