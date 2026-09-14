@@ -43,14 +43,28 @@ branch otherwise untouched. Congestion control belongs in sysctl, not in a
 firewall UI -- see FriendlyWrt, which ships it commented out in
 /etc/sysctl.d/31-optmize-proxy.conf and never touches luci-app-firewall.
 
+Rebased onto 26d2f86ae2 ("luci-app-firewall: show runtime NAT and TCP CCA
+status"), which put a read-only status line above the form and inserted
+its setup code right in front of the closure -- the old hunk no longer
+found its context and the build stopped. That commit displays /proc/sys/net/ipv4/tcp_congestion_control
+and leaves the dropdown as it was; it adds no reader for the uci key. With
+both on the page the dead control contradicts the live value right above
+it, so the status line stays and becomes the only CCA shown. History check:
+a3ac471c96, which introduced the dropdown, never shipped a reader either,
+and no later lede or luci commit touches tcpcca.
+
+Proposed upstream as coolsnowwolf/luci#418, which also drops the two
+zh_Hans strings; this patch leaves the .po alone to keep its footprint
+small. Once that merges, this patch reports as already applied and can go.
+
 diff --git a/applications/luci-app-firewall/htdocs/luci-static/resources/view/firewall/zones.js b/applications/luci-app-firewall/htdocs/luci-static/resources/view/firewall/zones.js
-index 3495fd8..4c5251f 100644
+index bbd2f0964d..97459367b1 100644
 --- a/applications/luci-app-firewall/htdocs/luci-static/resources/view/firewall/zones.js
 +++ b/applications/luci-app-firewall/htdocs/luci-static/resources/view/firewall/zones.js
-@@ -32,15 +32,6 @@ return view.extend({
- 	renderZones([ctHelpers, fwDefaults]) {
- 		let m, s, o, out;
- 		const fw4 = L.hasSystemFeature('firewall4');
+@@ -55,15 +55,6 @@ return view.extend({
+ 			runtimeStatusText.textContent =
+ 				_('Running status: %s, TCP congestion control algorithm is %s').format(natMode, tcpcca);
+ 		};
 -		const addTCPCCAOption = () => {
 -			const tcpcca = s.option(form.ListValue, 'tcpcca', _('TCP CCA'),
 -				_('TCP congestion control algorithm.'));
@@ -61,9 +75,9 @@ index 3495fd8..4c5251f 100644
 -			tcpcca.rmempty = false;
 -		};
  
- 		m = new form.Map('firewall', _('Firewall - Zone Settings'),
- 			_('The firewall creates zones over your network interfaces to control network traffic flow.'));
-@@ -69,13 +60,9 @@ return view.extend({
+ 		updateRuntimeStatus(runtimeStatus);
+ 
+@@ -94,13 +85,9 @@ return view.extend({
  			o.value('0', _('Disable'));
  			o.value('1', _('FULLCONENAT'));
  			o.value('2', _('Broadcom Fullcone NAT1'));
