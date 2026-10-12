@@ -284,6 +284,9 @@ fetch_feeds() {
 
 install_feeds() {
     msg "Installing feeds"
+    # Clear any stale source link first; install -p alone will not replace it.
+    ./scripts/feeds uninstall xray-core
+    ./scripts/feeds install -p helloworld xray-core
     # 先按来源装 luciextras 的包。同名包同时存在于多个 feed 时，scripts/feeds
     # 取 feeds.conf 里第一个命中的（install_package 里已装过的直接 return），
     # 而 luciextras 排在最后必输。曾因此让上游的 luci-app-accesscontrol-plus
