@@ -285,8 +285,10 @@ fetch_feeds() {
 install_feeds() {
     msg "Installing feeds"
     # Clear any stale source link first; install -p alone will not replace it.
+    # xray-core 用 aether-proxy 发布仓库（channel）那份：与设备上的通道更新同一份构建。
+    # packages 与 helloworld 也各有一份；同名包取先装的那个，所以这里按来源先装。
     ./scripts/feeds uninstall xray-core
-    ./scripts/feeds install -p helloworld xray-core
+    ./scripts/feeds install -p channel xray-core
     # 先按来源装 luciextras 的包。同名包同时存在于多个 feed 时，scripts/feeds
     # 取 feeds.conf 里第一个命中的（install_package 里已装过的直接 return），
     # 而 luciextras 排在最后必输。曾因此让上游的 luci-app-accesscontrol-plus
