@@ -4,9 +4,8 @@ set -euo pipefail
 TARGET=x86
 source "$(dirname "$0")/lib.sh"
 
-# 用法: build-x86.sh [-fw 3|4] [--update-only]
+# 用法: build-x86.sh [--update-only]
 parse_common_args "$@"
-resolve_fw "$TARGET"
 
 UPDATE_ONLY=false
 has_arg --update-only "${REST_ARGS[@]}" && UPDATE_ONLY=true
@@ -16,7 +15,7 @@ prepare_worktree  "$TARGET"
 fetch_feeds       "$TARGET"
 
 if $UPDATE_ONLY; then
-    msg "x86 update done (fw$FW)"
+    msg "x86 update done"
     exit 0
 fi
 
@@ -29,4 +28,4 @@ download_sources
 build_firmware
 collect_output    "$TARGET"
 
-msg "x86 build done (fw$FW)"
+msg "x86 build done"

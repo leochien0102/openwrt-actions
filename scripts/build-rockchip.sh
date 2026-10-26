@@ -4,9 +4,8 @@ set -euo pipefail
 TARGET=rockchip
 source "$(dirname "$0")/lib.sh"
 
-# 用法: build-rockchip.sh [-fw 3|4] [--update-only]
+# 用法: build-rockchip.sh [--update-only]
 parse_common_args "$@"
-resolve_fw "$TARGET"
 
 UPDATE_ONLY=false
 has_arg --update-only "${REST_ARGS[@]}" && UPDATE_ONLY=true
@@ -16,7 +15,7 @@ prepare_worktree  "$TARGET"
 fetch_feeds       "$TARGET"
 
 if $UPDATE_ONLY; then
-    msg "Rockchip update done (fw$FW)"
+    msg "Rockchip update done"
     exit 0
 fi
 
@@ -29,4 +28,4 @@ download_sources
 build_firmware
 collect_output    "$TARGET"
 
-msg "Rockchip build done (fw$FW)"
+msg "Rockchip build done"

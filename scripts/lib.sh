@@ -15,46 +15,21 @@ msg() {
 }
 
 #################################
-# common args: -fw 3|4
+# common args
 #################################
-# 解析通用参数。-fw / --fw 取出 firewall 世代，其余参数原样留在 REST_ARGS。
+# 收集位置参数到 REST_ARGS。2026-10-26 起只编 fw4，-fw 参数已删除：传了直接报错，
+# 免得旧命令以为还能编 fw3（lede 上游 2026-10-03 起默认就是 fw4）。
 parse_common_args() {
     REST_ARGS=()
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -fw|--fw)      FW="${2:-}"; shift 2 ;;
-            -fw=*|--fw=*)  FW="${1#*=}"; shift ;;
-            # 只有上面两种写法算数。'-fw4' 这类粘在一起的形式过去会掉进 *)
-            # 分支被当成普通参数，于是 --update-only 落到 REST_ARGS[1]，位置
-            # 判断看不见它——脚本转而跑完整固件构建，而 FW 因为 target 默认值
-            # 恰好也是 4，从输出上完全看不出哪里不对。宁可直接报错。
-            -fw*|--fw*)
-                err "Unrecognized option '$1' -- write '-fw 4' or '--fw=4'"
+            -fw|--fw|-fw=*|--fw=*|-fw*|--fw*)
+                err "Option '$1' was removed: only fw4 (nftables) firmware is built now"
                 exit 1
                 ;;
-            *)             REST_ARGS+=("$1"); shift ;;
+            *) REST_ARGS+=("$1"); shift ;;
         esac
     done
-}
-
-# 未显式指定 -fw 时，按 target 取默认世代，并校验取值。
-resolve_fw() {
-    local target="$1"
-
-    if [[ -z "${FW:-}" ]]; then
-        # 已验证可用 fw4 的 target 逐个列出，新 target 先落到 fw3（lede 基线），
-        # 验证过再加进来——避免新 target 默默继承一个没测过的世代。
-        case "$target" in
-            rockchip|x86) FW=4 ;;
-            *)            FW=3 ;;
-        esac
-        msg "No -fw given, defaulting to fw$FW for target '$target'"
-    fi
-
-    case "$FW" in
-        3|4) ;;
-        *) err "Invalid -fw value: '$FW' (expected 3 or 4)"; exit 1 ;;
-    esac
 }
 
 # REST_ARGS 里是否出现过某个标志。位置无关——用位置判断的话，任何在它前面
@@ -225,17 +200,12 @@ apply_patches() {
 # feeds
 #################################
 # 注意：shared/feeds 是所有 target 共用的单一检出，feeds.conf 决定其分支。
-# 现在只有一份 configs/feeds.conf——helloworld 那个分支是防火墙世代无关的
-# （Makefile 按 PACKAGE_firewall4 选透明代理后端，ssr-rules 运行时探测
-# USE_TABLES），两个世代共用，所以在世代之间来回切不再引起 feed 重新检出。
-# 下面按 target / 世代分文件的查找顺序仍然保留，真需要时可以加回来。
+# 现在只有一份 configs/feeds.conf；按 target 分文件的查找仍然保留，真需要时可以加。
 load_feeds_conf() {
     local target="$1"
 
-    # 优先级：target+fw > fw > target > 通用。fw 世代通常只影响个别 feed 的分支。
+    # 优先级：target > 通用。
     local candidates=(
-        "$target.feeds.fw$FW.conf"
-        "feeds.fw$FW.conf"
         "$target.feeds.conf"
         "feeds.conf"
     )
@@ -336,19 +306,20 @@ confirm_continue_build() {
 load_config() {
     local target="$1"
 
-    msg "Loading config: $target.config (fw$FW)"
+    msg "Loading config: $target.config"
     cp "$CONFIG_DIR/$target.config" .config
 
-    # <target>.config 保持 fw 世代中立，差异以叠加文件的形式追加。
-    # kconfig 后出现的赋值覆盖先出现的，所以 target 级叠加放在通用叠加之后。
-    local overlay
-    for overlay in "fw$FW.config" "$target.fw$FW.config"; do
-        if [[ -f "$CONFIG_DIR/$overlay" ]]; then
-            msg "Applying overlay: $overlay"
-            printf '\n' >> .config
-            cat "$CONFIG_DIR/$overlay" >> .config
-        fi
-    done
+    # 所有 target 共用的选项（fw4、去掉 iptables 那一套、aether-proxy 等）放在
+    # common.config，追加在 <target>.config 之后；kconfig 后出现的赋值覆盖先出现的。
+    local overlay="common.config"
+    if [[ -f "$CONFIG_DIR/$overlay" ]]; then
+        msg "Applying overlay: $overlay"
+        printf '\n' >> .config
+        cat "$CONFIG_DIR/$overlay" >> .config
+    else
+        err "configs/$overlay is missing"
+        exit 1
+    fi
 
     make defconfig
 }
@@ -371,7 +342,7 @@ build_firmware() {
 
 #################################
 # collect output
-# - firmware files -> output/<target>/firmware/<ts>-fw<N>-<n>  (accumulated)
+# - firmware files -> output/<target>/firmware/<ts>-<n>  (accumulated)
 # - packages       -> output/<target>/packages/             (replaced)
 #################################
 collect_output() {
@@ -390,10 +361,8 @@ collect_output() {
     while IFS= read -r -d '' f; do
         local base
         base=$(basename "$f")
-        # 带上世代：两个世代的固件基名完全相同，不标出来就分不清，
-        # 而 GitHub Release 的资产名还必须唯一。
-        mv "$f" "$firmware_dir/${ts}-fw${FW}-${base}"
-        echo "  ${ts}-fw${FW}-${base}"
+        mv "$f" "$firmware_dir/${ts}-${base}"
+        echo "  ${ts}-${base}"
         (( count++ )) || true
     done < <(find bin/targets -maxdepth 4 -type f \
         \( -name "*.img*" -o -name "*.bin" -o -name "*.manifest" -o -name "*.qcow2" \) \

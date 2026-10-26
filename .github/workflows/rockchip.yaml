@@ -4,29 +4,15 @@ on:
   schedule:
     - cron: '0 16 * * 0'  # UTC 16:00 Sunday = Beijing 00:00 Monday
   workflow_dispatch:
-    inputs:
-      fw:
-        description: 编译哪个防火墙世代
-        type: choice
-        default: all
-        options:
-          - all
-          - '3'
-          - '4'
 
 env:
   TZ: Asia/Shanghai
 
 jobs:
   build:
-    name: Build Rockchip (fw${{ matrix.fw }})
+    # 只编 fw4（nftables）固件：2026-10-26 起不再编 fw3，见 configs/common.config 开头。
+    name: Build Rockchip
     runs-on: ubuntu-24.04
-    strategy:
-      # 一个世代编不过不该连累另一个，两边的失败一次看全。
-      fail-fast: false
-      matrix:
-        # 定时触发时 inputs 为空，两个世代都编；手动触发可只挑一个。
-        fw: ${{ fromJSON(inputs.fw == '3' && '["3"]' || inputs.fw == '4' && '["4"]' || '["3","4"]') }}
     steps:
       - name: Free disk space
         uses: jlumbroso/free-disk-space@main
@@ -45,15 +31,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: shared/dl
-          key: dl-rockchip-fw${{ matrix.fw }}-${{ hashFiles('configs/rockchip.config', format('configs/fw{0}.config', matrix.fw), 'configs/feeds.conf') }}
+          key: dl-rockchip-${{ hashFiles('configs/rockchip.config', 'configs/common.config', 'configs/feeds.conf') }}
           restore-keys: dl-rockchip-
 
       - name: Restore feeds cache
         uses: actions/cache@v4
         with:
           path: shared/feeds
-          # feeds 不再分世代：configs/feeds.conf 两个世代共用，所以两条 matrix
-          # 腿共享同一份缓存。并发保存时其中一条会因键已存在而跳过，无害。
           key: feeds-rockchip-${{ hashFiles('configs/feeds.conf') }}
           restore-keys: feeds-rockchip-
 
@@ -76,12 +60,12 @@ jobs:
         run: mkdir -p shared/dl shared/feeds
 
       - name: Build
-        run: bash scripts/build-rockchip.sh -fw ${{ matrix.fw }}
+        run: bash scripts/build-rockchip.sh
 
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-rockchip-fw${{ matrix.fw }}
+          name: firmware-rockchip
           path: output/rockchip/firmware/
           retention-days: 1
 
@@ -89,10 +73,6 @@ jobs:
     name: Release
     runs-on: ubuntu-24.04
     needs: build
-    # 有哪个世代编成了就发哪个。fail-fast 已经关掉，但默认的 needs 语义是
-    # 全部成功才继续——那样 fw3 挂掉会连带扣下编好的 fw4。两条腿都挂时这里
-    # 会因为找不到 artifact 而失败，正是想要的结果。
-    if: ${{ !cancelled() }}
     permissions:
       contents: write
     steps:
@@ -103,37 +83,21 @@ jobs:
       - name: Download firmware
         uses: actions/download-artifact@v4
         with:
-          # 一次 release 收齐这次跑出来的所有世代。合并到同一目录是安全的：
-          # collect_output 已经把 fw<N> 写进文件名，不会撞名。
-          pattern: firmware-rockchip-fw*
+          name: firmware-rockchip
           path: release/
-          merge-multiple: true
 
-      # 表格按这次实际拿到的产物生成。手动触发可能只编一个世代，
-      # 某条腿也可能失败（release 用 if: !cancelled() 照发），静态表格会说谎。
       - name: Compose release notes
         id: notes
-        env:
-          FW_INPUT: ${{ inputs.fw }}
         run: |
-          case "$FW_INPUT" in
-            3) requested='3' ;;
-            4) requested='4' ;;
-            *) requested='3 4' ;;
-          esac
           {
             echo 'body<<RELEASE_NOTES_EOF'
             echo 'Rockchip weekly build — ${{ steps.tag.outputs.tag }}'
             echo
-            echo '| Target | Firewall | Status |'
-            echo '|--------|----------|--------|'
-            for n in $requested; do
-              [ "$n" = 3 ] && backend=iptables || backend=nftables
-              if ls release/*-fw"$n"-* >/dev/null 2>&1; then st='✅'; else st='❌'; fi
-              echo "| Rockchip H28K | fw$n ($backend) | $st |"
-            done
+            echo '| Target | Firewall |'
+            echo '|--------|----------|'
+            echo '| Rockchip H28K | fw4 (nftables) |'
             echo
-            echo '两个世代由同一份源码构建，差异只在 `configs/fw3.config` 与 `fw4.config`。'
+            echo '配置：`configs/rockchip.config` 叠加 `configs/common.config`。'
             echo RELEASE_NOTES_EOF
           } >> "$GITHUB_OUTPUT"
 
