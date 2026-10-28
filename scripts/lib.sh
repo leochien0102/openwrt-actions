@@ -86,8 +86,13 @@ prepare_worktree() {
     # Sync tracked files to upstream HEAD.
     # --hard resets only tracked files; build_dir/staging_dir are
     # untracked so they are preserved for incremental rebuilds.
+    #
+    # checkout 必须带 --force：apply_patches 每次构建都会改 tracked 文件
+    # （如 config_generate），上游一旦也改了同一个文件，不带 --force 就会
+    # 报 "local changes would be overwritten" 直接 abort——而下面的
+    # reset --hard 本来就要丢弃这些改动，这里拒绝执行纯属自相矛盾。
     msg "Resetting worktree to upstream HEAD"
-    git checkout --detach "$upstream_commit"
+    git checkout --force --detach "$upstream_commit"
     git reset --hard "$upstream_commit"
 
     # Remove untracked files that could confuse make, but preserve
