@@ -261,17 +261,13 @@ install_feeds() {
     msg "Installing feeds"
     # xray-core 用 packages feed 那份，和独立包 aether-xray 不冲突，不能卸载：v2raya、
     # passwall、ssr-plus 都依赖它。只清掉已删除的 channel feed 在旧构建树留下的链接目录；
-    # package/feeds 被 .gitignore 排除，git clean -df 不会删，留着会让 install -a 指向
-    # 不存在的 channel 源。
+    # package/feeds 是被 .gitignore 排除的构建树状态，git clean 不会清。删除已不存在的
+    # channel feed 目录，并统一摘掉指向被删/移位源的坏链接，避免 install 因同名链接已存在
+    # 而跳过，留下 v2raya/passwall/ssr-plus 缺 xray-core 的构建树。
     if [ -d package/feeds/channel ]; then
         rm -rf package/feeds/channel
     fi
-    # 旧构建树可能留下指向已删 channel 的坏链接；install 会跳过已存在的名字，所以坏链接
-    # 先摘掉，再显式从 packages 装回 patched xray-core（不能依赖 install -a 的跳过逻辑）。
-    if [ -L package/feeds/packages/xray-core ] && [ ! -e package/feeds/packages/xray-core ]; then
-        rm -f package/feeds/packages/xray-core
-    fi
-    ./scripts/feeds install -p packages xray-core
+    find package/feeds -xtype l -delete 2>/dev/null || true
     # chinadns-ng 显式用 aetherproxy 那份（上游静态二进制按 sha256 固定）。packages 那份较旧
     # （曾是 2025.06.20，低于 aether-proxy 要求的 2025.08.09）；设备的更新通道从不自动更新
     # chinadns-ng，所以它的版本只由固件决定。
