@@ -266,6 +266,12 @@ install_feeds() {
     if [ -d package/feeds/channel ]; then
         rm -rf package/feeds/channel
     fi
+    # 旧构建树可能留下指向已删 channel 的坏链接；install 会跳过已存在的名字，所以坏链接
+    # 先摘掉，再显式从 packages 装回 patched xray-core（不能依赖 install -a 的跳过逻辑）。
+    if [ -L package/feeds/packages/xray-core ] && [ ! -e package/feeds/packages/xray-core ]; then
+        rm -f package/feeds/packages/xray-core
+    fi
+    ./scripts/feeds install -p packages xray-core
     # chinadns-ng 显式用 aetherproxy 那份（上游静态二进制按 sha256 固定）。packages 那份较旧
     # （曾是 2025.06.20，低于 aether-proxy 要求的 2025.08.09）；设备的更新通道从不自动更新
     # chinadns-ng，所以它的版本只由固件决定。
