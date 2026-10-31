@@ -259,12 +259,16 @@ fetch_feeds() {
 
 install_feeds() {
     msg "Installing feeds"
-    # Clear any stale source link first; install -p alone will not replace it.
-    # xray-core 用 aether-proxy 发布仓库（channel）那份：与设备上的通道更新同一份构建。
-    # packages 与 helloworld 也各有一份；同名包取先装的那个，所以这里按来源先装。
+    # xray-core 直接用 packages feed 那份：上游 packages 已跟到 26.10.21（原来的 channel
+    # 那份是 26.9.30），不再需要为了版本先卸载再按来源安装。packages 在 feeds.conf 里
+    # 排第一，install -a 取先命中的那份，helloworld 里的同名包不会顶上来。
+    #
+    # 这一行 uninstall 不是版本覆盖，是清理旧构建树的残留：package/feeds 被 .gitignore
+    # 排除，git clean -df 不会删，上次从 channel 装的 package/feeds/channel/xray-core
+    # 还指着 channel；install 见到已安装的包直接跳过，不先摘掉，install -a 装回的还是
+    # channel 那份。
     ./scripts/feeds uninstall xray-core
-    ./scripts/feeds install -p channel xray-core
-    # chinadns-ng 同理用 channel 那份（上游静态二进制按 sha256 固定）。packages 那份较旧
+    # chinadns-ng 仍用 channel 那份（上游静态二进制按 sha256 固定）。packages 那份较旧
     # （曾是 2025.06.20，低于 aether-proxy 要求的 2025.08.09）；设备的更新通道从不自动更新
     # chinadns-ng，所以它的版本只由固件决定。
     ./scripts/feeds uninstall chinadns-ng
