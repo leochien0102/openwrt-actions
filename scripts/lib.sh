@@ -268,11 +268,11 @@ install_feeds() {
     # 还指着 channel；install 见到已安装的包直接跳过，不先摘掉，install -a 装回的还是
     # channel 那份。
     ./scripts/feeds uninstall xray-core
-    # chinadns-ng 仍用 channel 那份（上游静态二进制按 sha256 固定）。packages 那份较旧
+    # chinadns-ng 显式用 aetherproxy 那份（上游静态二进制按 sha256 固定）。packages 那份较旧
     # （曾是 2025.06.20，低于 aether-proxy 要求的 2025.08.09）；设备的更新通道从不自动更新
     # chinadns-ng，所以它的版本只由固件决定。
     ./scripts/feeds uninstall chinadns-ng
-    ./scripts/feeds install -p channel chinadns-ng
+    ./scripts/feeds install -p aetherproxy chinadns-ng
     # 先按来源装 luciextras 的包。同名包同时存在于多个 feed 时，scripts/feeds
     # 取 feeds.conf 里第一个命中的（install_package 里已装过的直接 return），
     # 而 luciextras 排在最后必输。曾因此让上游的 luci-app-accesscontrol-plus
