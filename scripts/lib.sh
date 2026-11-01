@@ -280,6 +280,9 @@ install_feeds() {
     # packages feed 里也有同名 chinadns-ng，feeds 会把它当 core package；-f 才能用
     # aetherproxy 的 2025.08.09 覆盖，否则 install 被跳过。
     ./scripts/feeds install -f -p aetherproxy chinadns-ng
+    # aether-proxy/aether-xray/luci-app 在旧构建树也可能被 feeds 误判为 core，
+    # install -a 会跳过，结果 menuconfig/镜像里没有应用。显式强制装回。
+    ./scripts/feeds install -f -p aetherproxy aether-proxy aether-xray luci-app-aether-proxy
     # 先按来源装 luciextras 的包。同名包同时存在于多个 feed 时，scripts/feeds
     # 取 feeds.conf 里第一个命中的（install_package 里已装过的直接 return），
     # 而 luciextras 排在最后必输。曾因此让上游的 luci-app-accesscontrol-plus
