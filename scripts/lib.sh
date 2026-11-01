@@ -277,7 +277,9 @@ install_feeds() {
     # （曾是 2025.06.20，低于 aether-proxy 要求的 2025.08.09）；设备的更新通道从不自动更新
     # chinadns-ng，所以它的版本只由固件决定。
     ./scripts/feeds uninstall chinadns-ng
-    ./scripts/feeds install -p aetherproxy chinadns-ng
+    # packages feed 里也有同名 chinadns-ng，feeds 会把它当 core package；-f 才能用
+    # aetherproxy 的 2025.08.09 覆盖，否则 install 被跳过。
+    ./scripts/feeds install -f -p aetherproxy chinadns-ng
     # 先按来源装 luciextras 的包。同名包同时存在于多个 feed 时，scripts/feeds
     # 取 feeds.conf 里第一个命中的（install_package 里已装过的直接 return），
     # 而 luciextras 排在最后必输。曾因此让上游的 luci-app-accesscontrol-plus
