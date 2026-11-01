@@ -291,6 +291,15 @@ install_feeds() {
     # 已安装的包后续会被跳过，所以这一趟放前面就等于给 luciextras 提权。
     ./scripts/feeds install -p luciextras -a
     ./scripts/feeds install -a
+
+    # x86/rockchip 共用：feeds 对 aetherproxy 包的 core 判定曾静默跳过这些包，
+    # 导致 menuconfig/镜像里没有应用。安装后硬性验收四个链接，缺一即失败。
+    for pkg in aether-proxy aether-xray chinadns-ng luci-app-aether-proxy; do
+        if [ ! -e "package/feeds/aetherproxy/$pkg" ]; then
+            err "aetherproxy feed missing package link: $pkg"
+            exit 1
+        fi
+    done
 }
 
 confirm_continue_build() {
