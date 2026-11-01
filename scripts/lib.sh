@@ -268,6 +268,11 @@ install_feeds() {
         rm -rf package/feeds/channel
     fi
     find package/feeds -xtype l -delete 2>/dev/null || true
+    # xray-core 用 helloworld 那份：它已跟到 26.10.31 且带 AnyTLS/Naive/SSR/TUIC/Snell
+    # 等补丁；packages 仍是 26.10.21。先摘掉旧来源的 xray-core 链接，再用 -f 强制从
+    # helloworld 装，否则 feeds install 看到同名已安装会直接跳过。
+    find package/feeds -path '*/xray-core' -type l -delete 2>/dev/null || true
+    ./scripts/feeds install -f -p helloworld xray-core
     # chinadns-ng 显式用 aetherproxy 那份（上游静态二进制按 sha256 固定）。packages 那份较旧
     # （曾是 2025.06.20，低于 aether-proxy 要求的 2025.08.09）；设备的更新通道从不自动更新
     # chinadns-ng，所以它的版本只由固件决定。
