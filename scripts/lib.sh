@@ -259,44 +259,36 @@ fetch_feeds() {
 
 install_feeds() {
     msg "Installing feeds"
-    # xray-core 用 packages feed 那份，和独立包 aether-xray 不冲突，不能卸载：v2raya、
-    # passwall、ssr-plus 都依赖它。只清掉已删除的 channel feed 在旧构建树留下的链接目录；
-    # package/feeds 是被 .gitignore 排除的构建树状态，git clean 不会清。删除已不存在的
-    # channel feed 目录，并统一摘掉指向被删/移位源的坏链接，避免 install 因同名链接已存在
-    # 而跳过，留下 v2raya/passwall/ssr-plus 缺 xray-core 的构建树。
-    if [ -d package/feeds/channel ]; then
-        rm -rf package/feeds/channel
+    # package/feeds 是生成的链接树，不随 prepare_worktree 的 git clean 清理。
+    # 统一重建链接，才能让 feeds.conf 的来源优先级也对增量构建生效；保留非链接文件。
+    if [[ -d package/feeds ]]; then
+        find package/feeds -type l -delete
     fi
-    find package/feeds -xtype l -delete 2>/dev/null || true
-    # xray-core 用 helloworld 那份：它已跟到 26.10.31 且带 AnyTLS/Naive/SSR/TUIC/Snell
-    # 等补丁；packages 仍是 26.10.21。先摘掉旧来源的 xray-core 链接，再用 -f 强制从
-    # helloworld 装，否则 feeds install 看到同名已安装会直接跳过。
-    find package/feeds -path '*/xray-core' -type l -delete 2>/dev/null || true
-    ./scripts/feeds install -f -p helloworld xray-core
-    # chinadns-ng 显式用 aetherproxy 那份（上游静态二进制按 sha256 固定）。packages 那份较旧
-    # （曾是 2025.06.20，低于 aether-proxy 要求的 2025.08.09）；设备的更新通道从不自动更新
-    # chinadns-ng，所以它的版本只由固件决定。
-    ./scripts/feeds uninstall chinadns-ng
-    # packages feed 里也有同名 chinadns-ng，feeds 会把它当 core package；-f 才能用
-    # aetherproxy 的 2025.08.09 覆盖，否则 install 被跳过。
-    ./scripts/feeds install -f -p aetherproxy chinadns-ng
-    # aether-proxy/aether-xray/luci-app 在旧构建树也可能被 feeds 误判为 core，
-    # install -a 会跳过，结果 menuconfig/镜像里没有应用。显式强制装回。
-    ./scripts/feeds install -f -p aetherproxy aether-proxy aether-xray luci-app-aether-proxy
-    # 先按来源装 luciextras 的包。同名包同时存在于多个 feed 时，scripts/feeds
-    # 取 feeds.conf 里第一个命中的（install_package 里已装过的直接 return），
-    # 而 luciextras 排在最后必输。曾因此让上游的 luci-app-accesscontrol-plus
-    # (1-r12) 顶掉我们这份，装出一个没有 status 命令、也不认 fw4 的旧版，
-    # 表现是 LuCI 状态灯恒为“未运行”、fw4 下规则根本装不上。
-    # 已安装的包后续会被跳过，所以这一趟放前面就等于给 luciextras 提权。
-    ./scripts/feeds install -p luciextras -a
+    # feeds 的 core 判定会读取 tmp/info 中的旧文件，不能只删 tmp/.packageinfo。
+    # 一并失效包扫描清单和缓存，避免已迁入 feed 的包仍被误判为 core。
+    # 不动 build_dir/staging_dir，保留编译产物。
+    rm -f tmp/.packageinfo tmp/info/.packageinfo-* \
+        tmp/info/.files-packageinfo* tmp/info/.overrides-packageinfo*
+
+    # 只调用一次，避免逐个 uninstall/install 触发中间态扫描，产生假缺依赖告警。
+    # 优先级集中声明在 configs/feeds.conf，不全局 -f 覆盖真正的 core 包。
     ./scripts/feeds install -a
 
-    # x86/rockchip 共用：feeds 对 aetherproxy 包的 core 判定曾静默跳过这些包，
-    # 导致 menuconfig/镜像里没有应用。安装后硬性验收四个链接，缺一即失败。
-    for pkg in aether-proxy aether-xray chinadns-ng luci-app-aether-proxy; do
-        if [ ! -e "package/feeds/aetherproxy/$pkg" ]; then
-            err "aetherproxy feed missing package link: $pkg"
+    # scripts/feeds 的补丁只在安装前发现已有包；完整链接树建好后再生成配置和校验依赖。
+    make -s prepare-tmpinfo
+
+    # 不只验收存在性，还核对实际来源，防止 feed 顺序/包目录变化后静默装错。
+    local spec feed pkg link expected
+    for spec in helloworld:xray-core \
+        aetherproxy:aether-proxy aetherproxy:aether-xray \
+        aetherproxy:chinadns-ng aetherproxy:luci-app-aether-proxy \
+        luciextras:luci-app-accesscontrol-plus; do
+        feed="${spec%%:*}"
+        pkg="${spec#*:}"
+        link="package/feeds/$feed/$pkg"
+        expected="../../../feeds/$feed/$pkg"
+        if [[ ! -e "$link" || ! -L "$link" ]] || [[ "$(readlink "$link")" != "$expected" ]]; then
+            err "Wrong or missing feed package link: $link (expected $expected)"
             exit 1
         fi
     done
@@ -411,5 +403,3 @@ collect_output() {
     fi
     msg "Packages collected to $packages_dir"
 }
-
-

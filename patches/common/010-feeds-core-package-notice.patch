@@ -1,0 +1,26 @@
+--- a/scripts/feeds
++++ b/scripts/feeds
+@@ -268,7 +268,13 @@ sub get_feed($) {
+ }
+ 
+ sub get_installed() {
+-	system("$mk -s prepare-tmpinfo OPENWRT_BUILD=");
++	# Installation needs discovery metadata, not dependency validation against
++	# a partially installed tree. The caller runs prepare-tmpinfo afterwards.
++	system("mkdir -p tmp/info") == 0 or die "Cannot create tmp/info\n";
++	system("$mk -r -s -f include/scan.mk SCAN_TARGET=packageinfo SCAN_DIR=package SCAN_NAME=package SCAN_DEPTH=5 SCAN_EXTRA= OPENWRT_BUILD=") == 0
++		or die "Cannot scan installed packages\n";
++	system("$mk -r -s -f include/scan.mk SCAN_TARGET=targetinfo SCAN_DIR=target/linux SCAN_NAME=target SCAN_DEPTH=3 SCAN_EXTRA= SCAN_MAKEOPTS=TARGET_BUILD=1 OPENWRT_BUILD=") == 0
++		or die "Cannot scan installed targets\n";
+ 	clear_packages();
+ 	parse_package_metadata("./tmp/.packageinfo");
+ 	%installed_pkg = %vpackage;
+@@ -558,7 +558,7 @@ sub install_src {
+ 	if (is_core_src($name)) {
+ 		if (!$force) {
+ 			if ($name ne "toolchain" && $name ne "linux") {
+-				warn "WARNING: Not overriding core package '$name'; use -f to force\n";
++				warn "Keeping core package '$name' (feed version not selected)\n";
+ 			}
+ 			return 0;
+ 		}
