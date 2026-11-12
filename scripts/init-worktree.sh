@@ -19,6 +19,7 @@ prepare_worktree  "$TARGET"
 # reset 掉未提交改动，所以不能在 fetch 之前打）。
 fetch_feeds       "$TARGET"
 apply_patches     "$TARGET"
+stage_aether_dns  "$TARGET"
 install_feeds
 load_config       "$TARGET"
 
