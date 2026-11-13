@@ -262,6 +262,18 @@ stage_aether_dns() {
     want="${!want_var}"
     [[ -n "$want" ]] || { err "aether-dns: no pinned sha256 for arch $arch"; return 1; }
 
+    # feeds.conf 钉的是 DNS 仓库的解析版本，pins/ 钉的是二进制版本；两者漂移时失败。
+    local feed_make="$PWD/feeds/aetherdns/openwrt/Makefile" feed_version feed_release
+    feed_version=$(sed -n 's/^PKG_VERSION:=\(.*\)$/\1/p' "$feed_make" | head -n1)
+    feed_release=$(sed -n 's/^PKG_RELEASE:=\(.*\)$/\1/p' "$feed_make" | head -n1)
+    if [[ -z "$feed_version" || -z "$feed_release" ]]; then
+        err "aether-dns: cannot read PKG_VERSION/PKG_RELEASE from $feed_make"; return 1
+    fi
+    if [[ "$AETHER_DNS_VERSION" != "$feed_version-r$feed_release" ]]; then
+        err "aether-dns: version drift: pins=$AETHER_DNS_VERSION feed=$feed_version-r$feed_release"
+        return 1
+    fi
+
     msg "Staging aether-dns $AETHER_DNS_VERSION ($arch)"
     mkdir -p "$tmp"
     if [[ ! -f "$tmp/aether-dns.ipk" ]] || [[ "$(sha256sum "$tmp/aether-dns.ipk" | cut -d' ' -f1)" != "$want" ]]; then
