@@ -13,10 +13,12 @@
 ```
 .
 ├── configs/
-│   ├── feeds.conf               # 通用 feeds 配置
+│   ├── feeds.conf               # 通用 feeds 配置（只声明 feed 来源）
 │   ├── common.config            # 所有 target 共用的叠加配置（fw4、aether-proxy 等）
 │   ├── rockchip.config          # Rockchip 编译配置
 │   └── x86.config               # x86_64 编译配置
+├── pins/
+│   └── aetherdns.env            # aether-dns 版本/哈希钉版（shell 变量，供 scripts/lib.sh source；不是 kconfig）
 ├── patches/
 │   ├── common/                  # 所有 target 通用
 │   ├── base-files/              # 默认 IP 等基础配置（可被 target 专属 patch 覆盖）

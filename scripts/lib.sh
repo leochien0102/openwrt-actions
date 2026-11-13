@@ -257,7 +257,7 @@ stage_aether_dns() {
 
     [[ -d "$PWD/feeds/aetherdns" ]] || { err "aether-dns feed missing; check configs/feeds.conf"; return 1; }
     # shellcheck disable=SC1091
-    source "$CONFIG_DIR/aetherdns.conf"
+    source "$ROOT_DIR/pins/aetherdns.env"
     want_var="AETHER_DNS_SHA256_$arch"
     want="${!want_var}"
     [[ -n "$want" ]] || { err "aether-dns: no pinned sha256 for arch $arch"; return 1; }
