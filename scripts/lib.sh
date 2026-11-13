@@ -241,60 +241,6 @@ reset_feed_worktrees() {
     done
 }
 
-# aether-dns 的二进制不在 DNS 仓库的 git 树里（由它的 CI 在构建时放入 openwrt/files/）。
-# 固件构建从已发布的 ipk 里取出该二进制，落到 feed 检出，避免把二进制提交进任何仓库。
-# 下载与解包缓存在 dl/aether-dns-stage/，重复构建时按 sha256 校验后复用。
-stage_aether_dns() {
-    local target="$1"
-    local arch want_var want got feed="$PWD/feeds/aetherdns/openwrt/files"
-    local tmp="$PWD/dl/aether-dns-stage"
-
-    case "$target" in
-        rockchip) arch=aarch64_generic ;;
-        x86)      arch=x86_64 ;;
-        *) err "stage_aether_dns: unknown target '$target'"; return 1 ;;
-    esac
-
-    [[ -d "$PWD/feeds/aetherdns" ]] || { err "aether-dns feed missing; check configs/feeds.conf"; return 1; }
-    # shellcheck disable=SC1091
-    source "$ROOT_DIR/pins/aetherdns.env"
-    want_var="AETHER_DNS_SHA256_$arch"
-    want="${!want_var}"
-    [[ -n "$want" ]] || { err "aether-dns: no pinned sha256 for arch $arch"; return 1; }
-
-    # feeds.conf 钉的是 DNS 仓库的解析版本，pins/ 钉的是二进制版本；两者漂移时失败。
-    local feed_make="$PWD/feeds/aetherdns/openwrt/Makefile" feed_version feed_release
-    feed_version=$(sed -n 's/^PKG_VERSION:=\(.*\)$/\1/p' "$feed_make" | head -n1)
-    feed_release=$(sed -n 's/^PKG_RELEASE:=\(.*\)$/\1/p' "$feed_make" | head -n1)
-    if [[ -z "$feed_version" || -z "$feed_release" ]]; then
-        err "aether-dns: cannot read PKG_VERSION/PKG_RELEASE from $feed_make"; return 1
-    fi
-    if [[ "$AETHER_DNS_VERSION" != "$feed_version-r$feed_release" ]]; then
-        err "aether-dns: version drift: pins=$AETHER_DNS_VERSION feed=$feed_version-r$feed_release"
-        return 1
-    fi
-
-    msg "Staging aether-dns $AETHER_DNS_VERSION ($arch)"
-    mkdir -p "$tmp"
-    if [[ ! -f "$tmp/aether-dns.ipk" ]] || [[ "$(sha256sum "$tmp/aether-dns.ipk" | cut -d' ' -f1)" != "$want" ]]; then
-        if ! curl -fsSL --retry 3 -o "$tmp/aether-dns.ipk" \
-            "$AETHER_DNS_BASE_URL/aether-dns_${AETHER_DNS_VERSION}_${arch}.ipk"; then
-            err "aether-dns: cannot download ${AETHER_DNS_VERSION} (${arch})"; return 1
-        fi
-    fi
-    got=$(sha256sum "$tmp/aether-dns.ipk" | cut -d' ' -f1)
-    if [[ "$got" != "$want" ]]; then
-        err "aether-dns: sha256 mismatch for ${arch}: $got"; return 1
-    fi
-    if ! tar -xzf "$tmp/aether-dns.ipk" -C "$tmp" ./data.tar.gz \
-        || ! tar -xzf "$tmp/data.tar.gz" -C "$tmp" ./usr/bin/aether-dns; then
-        err "aether-dns: cannot extract binary from ipk"; return 1
-    fi
-    mkdir -p "$feed"
-    install -m 0755 "$tmp/usr/bin/aether-dns" "$feed/aether-dns"
-    msg "aether-dns staged: $("$feed/aether-dns" -V 2>/dev/null || echo 'version unknown')"
-}
-
 fetch_feeds() {
     local target="$1"
     load_feeds_conf "$target"
