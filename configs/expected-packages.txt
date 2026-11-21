@@ -1,0 +1,15 @@
+# 每次 defconfig 与每次出固件都必须存在的包（每行一个，忽略空行与 # 注释）。
+#
+# 作用：kconfig 的 `depends on` 不满足时不会报错，而是把包静默丢掉——2026-11-21
+# 就发生过一次：helloworld dev-main 的 luci-app-ssr-plus 在 2026-11-13 引入
+# `+coreutils-timeout`（需要 CONFIG_PACKAGE_coreutils=y），而我们的 config 从没
+# 打开 coreutils，于是 11-15 / 11-16 两次固件里 ssr-plus 和 ssrp-watch 凭空消失，
+# 构建依旧"成功"。这份清单就是拿来把这种静默失败变成显式报错的，别删。
+
+luci-app-ssr-plus
+luci-app-ssrp-watch
+luci-app-aether-proxy
+aether-proxy
+aether-xray
+aether-dns
+dnsmasq-full

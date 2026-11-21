@@ -27,5 +27,6 @@ load_config       "$TARGET"
 download_sources
 build_firmware
 collect_output    "$TARGET"
+assert_manifest_packages "rockchip"
 
 msg "Rockchip build done"

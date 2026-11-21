@@ -342,6 +342,55 @@ load_config() {
     fi
 
     make defconfig
+    assert_expected_packages
+}
+
+# 期望进入固件的包清单：configs/expected-packages.txt（每行一个，忽略空行与 # 注释）
+expected_packages() {
+    local file="$CONFIG_DIR/expected-packages.txt"
+    if [[ ! -f "$file" ]]; then
+        err "configs/expected-packages.txt is missing"
+        exit 1
+    fi
+    sed -e 's/#.*//' -e 's/[[:space:]]//g' "$file" | grep -v '^$'
+}
+
+# defconfig 之后立刻检查。kconfig 对 depends 不满足的包是静默丢弃的：
+# 2026-11-13 helloworld 给 luci-app-ssr-plus 加了 +coreutils-timeout（需要
+# CONFIG_PACKAGE_coreutils=y），11-15/11-16 两次固件就把 ssr-plus 静默丢了，
+# 构建还是"成功"。这里把静默失败变成显式报错。
+assert_expected_packages() {
+    local missing=() pkg
+    while IFS= read -r pkg; do
+        grep -qx "CONFIG_PACKAGE_${pkg}=y" .config || missing+=("$pkg")
+    done < <(expected_packages)
+    if (( ${#missing[@]} )); then
+        err "defconfig dropped expected package(s): ${missing[*]}"
+        err "kconfig discards a package when its 'depends on' is unmet; look up the symbol"
+        err "in tmp/.config-package.in and enable the dependency it asks for"
+        return 1
+    fi
+    msg "Config check: all expected packages selected"
+}
+
+# 出固件之后再核对一次：manifest 才是"实际编进镜像"的事实来源。
+assert_manifest_packages() {
+    local target="$1"
+    local manifest
+    manifest=$(ls -t "$OUTPUT_DIR/$target/firmware/"*.manifest 2>/dev/null | head -n1 || true)
+    if [[ -z "$manifest" ]]; then
+        err "no firmware manifest under $OUTPUT_DIR/$target/firmware"
+        return 1
+    fi
+    local missing=() pkg
+    while IFS= read -r pkg; do
+        grep -q "^${pkg} " "$manifest" || missing+=("$pkg")
+    done < <(expected_packages)
+    if (( ${#missing[@]} )); then
+        err "package(s) missing from $(basename "$manifest"): ${missing[*]}"
+        return 1
+    fi
+    msg "Manifest check: all expected packages present in $(basename "$manifest")"
 }
 
 #################################
